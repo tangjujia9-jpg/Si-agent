@@ -29,6 +29,10 @@ into four groups.
 | file | what it answers |
 |---|---|
 | [architecture.md](architecture.md) | the four pillars, and which file is which diagram box |
+| [copilot-backend.md](copilot-backend.md) | Si-agent API, PostgreSQL, import worker, Docker, and verification |
+| [copilot-week2-release.md](copilot-week2-release.md) | Week 2 changes, verification results, and remaining milestones |
+| [context-copilot-design.md](context-copilot-design.md) | Project Copilot contracts and the FTS5 baseline |
+| [WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md](WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md) | Chinese source walkthrough and architecture learning notes |
 | [loop-vs-graph.md](loop-vs-graph.md) | when a turn needs shape, and why the loop never changes |
 | [agent-graphs-design.md](agent-graphs-design.md) | the graph engine's design and its fail-open rule |
 | [providers-registry.md](providers-registry.md) | adding a model provider: one table in `waku/providers.toml` |

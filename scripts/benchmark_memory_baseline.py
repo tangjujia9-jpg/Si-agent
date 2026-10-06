@@ -22,7 +22,6 @@ if str(ROOT) not in sys.path:
 from waku.db import SCHEMA
 from waku.memory.semantic.store import SqliteFactStore
 
-
 CASES = (
     ("exact keywords", "morning meetings", True),
     ("paraphrase", "early-day syncs", False),

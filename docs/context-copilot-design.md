@@ -63,6 +63,8 @@ evidence, and deterministic empty-query behavior.
 
 ## Next step
 
-Week 2 will add the PostgreSQL schema and a first `MemoryPort` implementation.
-It will not replace the current Waku turn path until the new adapter passes the
-existing deterministic memory conformance tests and the baseline comparison.
+Week 2 added the PostgreSQL schema, project API, import worker, and source
+console; see [the product guide](copilot-backend.md). The full `MemoryPort`
+adapter and hybrid retrieval follow in week 3. The new product will not replace
+the current Waku turn path until its memory adapter passes conformance tests
+and the baseline comparison.

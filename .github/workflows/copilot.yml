@@ -1,0 +1,48 @@
+name: copilot
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+
+jobs:
+  contracts-api-storage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: si
+          POSTGRES_PASSWORD: si-test
+          POSTGRES_DB: si_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U si -d si_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SI_TEST_DATABASE_URL: postgresql+psycopg://si:si-test@127.0.0.1:5432/si_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install uv==0.9.26
+      - run: uv sync --frozen --extra dev --extra copilot --extra hosted
+      - run: uv run --no-sync ruff check waku evals scripts hosted
+      - run: uv run --no-sync pytest -q evals/deterministic/test_copilot_backend.py evals/deterministic/test_project_contracts.py evals/deterministic/test_rulebook.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci && npm test && npm run build
+        working-directory: apps/web
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f infra/compose.yaml up -d --build
+      - run: python scripts/smoke_copilot.py
+      - if: failure()
+        run: docker compose -f infra/compose.yaml logs --no-color
+      - if: always()
+        run: docker compose -f infra/compose.yaml down

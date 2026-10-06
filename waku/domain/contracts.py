@@ -7,11 +7,10 @@ an SDK into the domain layer.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
-
-import uuid
 
 OperationStatus = Literal["succeeded", "failed", "partial", "unknown"]
 MemoryTier = Literal["l0", "l1", "l2"]

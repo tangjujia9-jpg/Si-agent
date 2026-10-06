@@ -39,6 +39,16 @@ Changelog = "https://github.com/ShenSeanChen/waku-agent/releases"
 waku = "waku.__main__:main"
 
 [project.optional-dependencies]
+# Project Context Copilot server; the local assistant does not require these.
+copilot = [
+    "fastapi>=0.121,<1",
+    "uvicorn>=0.30,<1",
+    "sqlalchemy>=2.0,<3",
+    "alembic>=1.14,<2",
+    "psycopg[binary]>=3.2,<4",
+    "pgvector>=0.3,<1",
+    "httpx>=0.27,<1",
+]
 # Eval pillar: LLM-as-judge (deterministic evals need only pytest)
 eval = [
     "pytest>=8.0",

@@ -7,9 +7,10 @@ returns inspectable evidence and accepts scoped, versioned nodes.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol, Sequence, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from waku.domain.contracts import MemoryHit, MemoryNode
 

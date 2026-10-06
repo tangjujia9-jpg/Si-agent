@@ -1,0 +1,5 @@
+# Use with a separate Compose project: -p si-agent-week2-test.
+services:
+  db:
+    ports:
+      - "127.0.0.1:55432:5432"

@@ -6,11 +6,18 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-09-23
+**Last updated:** 2026-10-06
 
 ---
 
 ## What works
+
+Si-agent's optional Copilot API, PostgreSQL schema, import worker, and React
+context console run through the project/import/inspection lifecycle. Targeted
+core and Copilot regression tests passed locally (118 passed, 49 skipped).
+Semantic retrieval and original loop integration remain upcoming milestones.
+See [copilot-week2-release.md](copilot-week2-release.md) for verification limits
+and [copilot-backend.md](copilot-backend.md) for startup commands.
 
 The four pillars run: the loop, memory (semantic + episodic + procedural with
 a retrieval gate), tools, and both eval tiers. `waku`, `waku dashboard`,
@@ -56,7 +63,7 @@ Additionally, and worth stating because people ask:
 
 - **No Windows CI.** The Windows bugs so far (#140, #141, both fixed) were
   found by contributors, not by us. Every Windows claim in this repo is
-  untested.
+  untested in CI. The Copilot backend and console have local Windows validation.
 - **The judge evals are not in CI.** `make gate` runs deterministic evals at
   100% plus a judge threshold, and CI runs only the first half. The judge tier
   needs an API key, which CI does not have.

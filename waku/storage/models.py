@@ -1,0 +1,138 @@
+"""Copilot schema. SQLite variants support offline tests, not vector retrieval."""
+
+from datetime import UTC, datetime
+from uuid import uuid4
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def now() -> datetime:
+    return datetime.now(UTC)
+
+
+def new_id() -> str:
+    return str(uuid4())
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Identity:
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class Project(Identity, Base):
+    __tablename__ = "projects"
+    user_id: Mapped[str] = mapped_column(String(80), default="default", index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(Text, default="")
+
+
+class Thread(Identity, Base):
+    __tablename__ = "threads"
+    __table_args__ = (UniqueConstraint("id", "project_id"),)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(160))
+
+
+class Message(Identity, Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        ForeignKeyConstraint(["thread_id", "project_id"], ["threads.id", "threads.project_id"]),
+        CheckConstraint("role IN ('user', 'assistant', 'tool')", name="message_role"),
+    )
+    thread_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    event_data: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=dict
+    )
+
+
+class Run(Identity, Base):
+    __tablename__ = "runs"
+    __table_args__ = (
+        ForeignKeyConstraint(["thread_id", "project_id"], ["threads.id", "threads.project_id"]),
+        CheckConstraint(
+            "status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')",
+            name="run_status",
+        ),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    thread_id: Mapped[str] = mapped_column(String(36))
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    model: Mapped[str] = mapped_column(String(160), default="")
+    trace_id: Mapped[str | None] = mapped_column(String(36))
+    context: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+
+
+class ContextNode(Identity, Base):
+    __tablename__ = "context_nodes"
+    __table_args__ = (
+        UniqueConstraint("project_id", "uri", name="uq_node_project_uri"),
+        CheckConstraint("status IN ('active', 'superseded', 'retracted')", name="node_status"),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="node_confidence"
+        ),
+        Index("ix_nodes_project_parent", "project_id", "parent_uri"),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    uri: Mapped[str] = mapped_column(Text)
+    parent_uri: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(String(240))
+    abstract: Mapped[str] = mapped_column(Text, default="")
+    overview: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    checksum: Mapped[str | None] = mapped_column(String(64))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    source_event_ids: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("context_nodes.id"))
+    embedding: Mapped[list | None] = mapped_column(Vector(1536).with_variant(JSON, "sqlite"))
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR().with_variant(Text, "sqlite"))
+
+
+class Job(Identity, Base):
+    __tablename__ = "jobs"
+    __table_args__ = (
+        UniqueConstraint("project_id", "idempotency_key", name="uq_job_project_key"),
+        CheckConstraint(
+            "status IN ('queued', 'running', 'succeeded', 'failed')", name="job_status"
+        ),
+        Index("ix_jobs_claim", "status", "available_at"),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    status: Mapped[str] = mapped_column(String(16), default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    error: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)

@@ -1,0 +1,60 @@
+name: si-agent
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: si_agent
+      POSTGRES_USER: si
+      POSTGRES_PASSWORD: ${SI_DB_PASSWORD:-si-local}
+    volumes:
+      - copilot_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U si -d si_agent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    environment: &database
+      SI_DATABASE_URL: postgresql+psycopg://si:${SI_DB_PASSWORD:-si-local}@db:5432/si_agent
+    command: [alembic, upgrade, head]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    environment: *database
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    environment: *database
+    command: [python, -m, waku.workers.runner]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  web:
+    build:
+      context: ../apps/web
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  copilot_db:

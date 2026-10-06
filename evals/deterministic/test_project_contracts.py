@@ -1,13 +1,13 @@
 """Offline contract tests for the Project Copilot architecture."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from scripts.benchmark_memory_baseline import run_baseline
 from waku.domain import Budget, MemoryHit, MemoryNode, RunContext, ToolResult
 from waku.memory.port import MemoryQuery
 from waku.providers import ModelCapabilities, ModelRef
-from scripts.benchmark_memory_baseline import run_baseline
 
 
 def test_run_context_carries_scope_and_hard_limits():
@@ -60,7 +60,7 @@ def test_memory_nodes_and_hits_are_citable():
         abstract="The project uses a provider-neutral model port.",
         project_id="waku",
         confidence=0.95,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     hit = MemoryHit(
         id="memory-1",

@@ -7,8 +7,8 @@ depends on the values and protocol defined here.
 from waku.providers.contracts import (
     ModelCapabilities,
     ModelRef,
-    ModelResponse,
     ModelRequest,
+    ModelResponse,
     ProviderPort,
     StreamEvent,
     Usage,
@@ -17,8 +17,8 @@ from waku.providers.contracts import (
 __all__ = [
     "ModelCapabilities",
     "ModelRef",
-    "ModelResponse",
     "ModelRequest",
+    "ModelResponse",
     "ProviderPort",
     "StreamEvent",
     "Usage",
