@@ -47,6 +47,8 @@ imports, observes task completion, and opens original source evidence.
 | Compose configuration and Python lock consistency | Passed |
 | Running API + worker + Postgres smoke test | Passed |
 | Browser create/import/inspect and project switching | Passed |
+| GitHub CI PostgreSQL/API/frontend job | Passed |
+| GitHub CI full-image Compose smoke | Passed |
 
 The targeted regression skips hosted memory adapters without credentials and
 the SQLite-only counterpart of the PostgreSQL locking test. PostgreSQL cases
@@ -54,8 +56,10 @@ were enabled; they were not silently replaced by SQLite tests.
 
 Local full-image Compose startup could not complete because Docker Hub token
 requests timed out. The verified local path used the cached pgvector image with
-native API/worker processes and Vite. The full-image smoke job is included in CI,
-but the local image build is not reported as passing.
+native API/worker processes and Vite. [GitHub CI run 37458564425](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/37458564425)
+subsequently passed both jobs for code commit `a4323a8`: PostgreSQL/API/frontend
+verification and the full-image Compose build/startup/import smoke test. The
+complete container deployment was verified on the Linux CI runner.
 
 The broader upstream deterministic suite still fails Windows coding-eval cases;
 the focused run stopped after three such failures. Those pre-existing modules
