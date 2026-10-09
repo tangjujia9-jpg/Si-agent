@@ -41,8 +41,14 @@ URI citation, source inspector, evidence IDs and compiled context.
 
 The project-scope test was mutation-checked: temporarily removing the candidate
 project filter returned a second project's document and failed the test. The
-filter was restored and the normal tests passed. GitHub deployment verification
-is recorded separately once CI finishes.
+filter was restored and the normal tests passed.
+
+[GitHub CI run 37939206709](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/37939206709)
+passed both jobs for code commit `bbfb8eb`: `contracts-api-storage` ran the real
+PostgreSQL/pgvector migration, retrieval, scope, vector-only paraphrase and worker
+tests plus frontend checks; `compose-smoke` built and started the complete
+container stack and passed the import/index/cited-search smoke. The local Docker
+failure therefore limits local reproduction, while Linux CI verified deployment.
 
 ## Limits
 
