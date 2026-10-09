@@ -33,6 +33,12 @@ class MemoryQuery:
             raise ValueError("top_k must be at least 1")
         if self.max_tokens < 1:
             raise ValueError("max_tokens must be at least 1")
+        if len(self.text) > 4000 or self.top_k > 50 or self.max_tokens > 32000:
+            raise ValueError("memory query exceeds retrieval limits")
+        if not self.tiers or any(t not in ("l0", "l1", "l2") for t in self.tiers):
+            raise ValueError("tiers must contain l0, l1 or l2")
+        if self.as_of is not None and self.as_of.tzinfo is None:
+            raise ValueError("as_of must include a timezone")
 
 
 @dataclass(frozen=True)
@@ -55,17 +61,14 @@ class MemoryWriteReceipt:
 class MemoryPort(Protocol):
     """Read/write boundary implemented by SQLite, Postgres, and adapters."""
 
-    def search(self, query: MemoryQuery) -> Sequence[MemoryHit]:
-        ...
+    def search(self, query: MemoryQuery) -> Sequence[MemoryHit]: ...
 
-    def write(self, request: MemoryWrite) -> MemoryWriteReceipt:
-        ...
+    def write(self, request: MemoryWrite) -> MemoryWriteReceipt: ...
 
-    def get(self, uri: str, *, user_id: str = "default") -> MemoryNode | None:
-        ...
+    def get(self, uri: str, *, user_id: str = "default") -> MemoryNode | None: ...
 
-    def list_children(self, uri: str, *, user_id: str = "default") -> Sequence[MemoryNode]:
-        ...
+    def list_children(self, uri: str, *, user_id: str = "default") -> Sequence[MemoryNode]: ...
 
-    def forget(self, uri: str, *, user_id: str = "default", reason: str = "user_request") -> bool:
-        ...
+    def forget(
+        self, uri: str, *, user_id: str = "default", reason: str = "user_request"
+    ) -> bool: ...

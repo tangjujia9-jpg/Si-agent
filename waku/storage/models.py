@@ -110,7 +110,9 @@ class ContextNode(Identity, Base):
     valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), default="active")
     supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("context_nodes.id"))
-    embedding: Mapped[list | None] = mapped_column(Vector(1536).with_variant(JSON, "sqlite"))
+    embedding: Mapped[list | None] = mapped_column(
+        Vector(1536).with_variant(JSON(none_as_null=True), "sqlite")
+    )
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR().with_variant(Text, "sqlite"))
 
 
@@ -136,3 +138,35 @@ class Job(Identity, Base):
     lease_token: Mapped[str | None] = mapped_column(String(36))
     error: Mapped[str | None] = mapped_column(Text)
     result: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+
+
+class ContextIndex(Identity, Base):
+    """One searchable representation per node/tier; revisions fence stale indexes."""
+
+    __tablename__ = "context_indexes"
+    __table_args__ = (
+        UniqueConstraint("node_id", "tier", name="uq_index_node_tier"),
+        CheckConstraint("tier IN ('l0', 'l1', 'l2')", name="index_tier"),
+        Index("ix_context_indexes_search", "search_vector", postgresql_using="gin"),
+    )
+    node_id: Mapped[str] = mapped_column(ForeignKey("context_nodes.id", ondelete="CASCADE"))
+    tier: Mapped[str] = mapped_column(String(2))
+    revision: Mapped[int] = mapped_column(Integer)
+    body: Mapped[str] = mapped_column(Text)
+    embedding_model: Mapped[str | None] = mapped_column(String(240))
+    embedding: Mapped[list | None] = mapped_column(
+        Vector(1536).with_variant(JSON(none_as_null=True), "sqlite")
+    )
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR().with_variant(Text, "sqlite"))
+
+
+class MemoryWriteRecord(Identity, Base):
+    __tablename__ = "memory_writes"
+    __table_args__ = (
+        UniqueConstraint("project_id", "idempotency_key", name="uq_memory_write_key"),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    node_id: Mapped[str] = mapped_column(ForeignKey("context_nodes.id"))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    created: Mapped[bool]

@@ -65,6 +65,7 @@ evidence, and deterministic empty-query behavior.
 
 Week 2 added the PostgreSQL schema, project API, import worker, and source
 console; see [the product guide](copilot-backend.md). The full `MemoryPort`
-adapter and hybrid retrieval follow in week 3. The new product will not replace
+adapter and hybrid retrieval are implemented in week 3; see [memory retrieval](copilot-memory.md).
+Forget remains deferred until durable tombstones exist. The new product will not replace
 the current Waku turn path until its memory adapter passes conformance tests
 and the baseline comparison.

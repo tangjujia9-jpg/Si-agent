@@ -93,9 +93,14 @@ friendly view; the **Data** tab shows the raw `state.db` tables.
 The Si-agent Copilot product layer is opt-in: `waku/server/` exposes FastAPI,
 `waku/storage/` defines SQLAlchemy persistence, and `waku/workers/` processes
 durable document imports. `apps/web/` provides the independent React console.
-`infra/` contains the Postgres migration and Compose deployment. The original
+`memory/postgres.py` searches tier indexes through directory routing, lexical
+and cosine rank fusion, and cited context compilation. `memory/indexing.py`
+materializes previews and fences asynchronous embedding writes. `infra/`
+contains the Postgres migrations and Compose deployment. The original
 Waku loop still uses its SQLite path; see [the product guide](copilot-backend.md)
-for the boundary and migration milestones.
+for the boundary and migration milestones. [The memory guide](copilot-memory.md)
+records retrieval limits; [the roadmap](copilot-roadmap.md) schedules Langfuse
+tracing for the provider/tool Harness milestone.
 
 - `waku/gateway/` — how text gets in and out: `cli.py`, `voice.py` (wake word),
   `telegram.py`, `discord.py` and `whatsapp.py`, started by `runner.py` and

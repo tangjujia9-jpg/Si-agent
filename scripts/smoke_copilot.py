@@ -3,6 +3,7 @@
 import argparse
 import json
 import time
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -58,6 +59,22 @@ def main():
     detail = request(f"/api/memory/{node['id']}")
     if detail["content"] != payload["documents"][0]["content"]:
         raise RuntimeError("source content did not round-trip")
+    index_id = status["result"]["index_job_id"]
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        indexed = request(f"/api/jobs/{index_id}")
+        if indexed["status"] == "failed":
+            raise RuntimeError(indexed["error"])
+        if indexed["status"] == "succeeded":
+            break
+        time.sleep(0.5)
+    else:
+        raise RuntimeError("Worker did not finish indexing within 60 seconds")
+    search = request("/api/memory/search?" + urlencode({"project_id": project["id"], "q": "pgvector", "tiers": "l2"}))
+    if not search["hits"] or f"[{node['uri']}]" not in search["context"]:
+        raise RuntimeError("retrieval did not return cited source evidence")
+    if search["estimated_tokens"] > 3000:
+        raise RuntimeError("retrieval exceeded its context budget")
     thread = request("/api/threads", {"project_id": project["id"]})
     print(
         json.dumps(
@@ -67,6 +84,8 @@ def main():
                 "job_id": job["id"],
                 "uri": node["uri"],
                 "thread_id": thread["id"],
+                "retrieval_hits": len(search["hits"]),
+                "embedding_model": search["embedding_model"],
             },
             indent=2,
         )

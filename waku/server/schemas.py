@@ -114,3 +114,51 @@ class ThreadOutput(Output):
     project_id: str
     title: str
     created_at: datetime
+
+
+class SearchInput(Input):
+    project_id: str = Field(min_length=1, max_length=36)
+    q: str = Field(min_length=1, max_length=4000)
+    top_k: int = Field(default=8, ge=1, le=50)
+    max_tokens: int = Field(default=3000, ge=1, le=32000)
+    include_details: bool = True
+    tiers: str = "l0,l1,l2"
+    as_of: datetime | None = None
+
+    @field_validator("tiers")
+    @classmethod
+    def valid_tiers(cls, value: str):
+        if not value or any(t not in {"l0", "l1", "l2"} for t in value.split(",")):
+            raise ValueError("tiers must be a comma-separated list of l0,l1,l2")
+        return value
+
+    @field_validator("as_of")
+    @classmethod
+    def zoned_time(cls, value):
+        if value is not None and value.tzinfo is None:
+            raise ValueError("as_of must include a timezone")
+        return value
+
+
+class HitOutput(Output):
+    id: str
+    uri: str
+    tier: str
+    snippet: str
+    score: float
+    source: str
+    project_scope: str
+    evidence_ids: list[str]
+    valid_from: datetime | None
+    valid_to: datetime | None
+    conflict_group: str | None
+
+
+class SearchOutput(Output):
+    hits: list[HitOutput]
+    context: str
+    estimated_tokens: int
+    truncated: bool
+    embedding_model: str | None
+    warnings: list[str]
+    stages: list[dict]

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { MemorySearch } from './MemorySearch';
 
 type Project = { id: string; name: string; description: string };
 type Node = { id: string; uri: string; parent_uri: string | null; kind: string; title: string;
@@ -99,7 +100,7 @@ export function App() {
       <div className="rail-footer"><i className={ready ? 'online' : ''} />{ready ? 'API connected' : 'Connecting to API'}<small>Single user · multiple projects</small></div>
     </aside>
     <main>
-      <header><span>WORKSPACE / {project?.name || 'GET STARTED'}</span><span className="phase">FOUNDATION · 02</span></header>
+      <header><span>WORKSPACE / {project?.name || 'GET STARTED'}</span><span className="phase">MEMORY · 03</span></header>
       <section className="intro"><div><p className="eyebrow">KNOWLEDGE WITH A HOME</p><h1>{project?.name || 'Build your project context.'}</h1>
         <p>Give your project a place to remember. Import source material,<br className="desktop"/> follow its origin, and inspect every document.</p></div>
         <div className="resource-count"><strong>{resources.length.toString().padStart(2, '0')}</strong><span>source documents</span></div></section>
@@ -129,8 +130,12 @@ export function App() {
             <code className="uri">{selected.uri}</code><pre>{selected.content || 'This directory groups project context.'}</pre>
             {!!selected.source_event_ids.length && <p className="provenance">IMPORT EVIDENCE · {selected.source_event_ids.join(', ')}</p>}</> : <p className="placeholder">Select a node to inspect its content and import evidence.</p>}
         </section>
+        <MemorySearch projectId={projectId} inspect={id => {
+          const node = nodes.find(n => n.id === id);
+          if (node) void inspect(node);
+        }} />
       </>}
-      <footer>SI-AGENT <span>Sources are stored as inspectable project context. Semantic retrieval and chat will follow.</span></footer>
+      <footer>SI-AGENT <span>Search scoped project evidence and inspect cited context. Agent chat will follow.</span></footer>
     </main>
   </div>;
 }

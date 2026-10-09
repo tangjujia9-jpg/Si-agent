@@ -5,13 +5,18 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from waku.memory.embeddings import configured_embedder
+from waku.memory.indexing import enqueue_index, refresh_indexes
+from waku.memory.port import MemoryQuery
+from waku.memory.postgres import PostgresMemory
 from waku.server.schemas import (
     IngestInput,
     JobOutput,
@@ -19,17 +24,19 @@ from waku.server.schemas import (
     NodeSummary,
     ProjectInput,
     ProjectOutput,
+    SearchInput,
+    SearchOutput,
     ThreadInput,
     ThreadOutput,
 )
 from waku.storage.database import build_engine, session_factory
-from waku.storage.models import ContextNode, Job, Project, Thread
+from waku.storage.models import ContextIndex, ContextNode, Job, Project, Thread
 
 USER_ID = "default"
 LOG = logging.getLogger(__name__)
 
 
-def create_app(database_url: str | None = None, *, engine=None) -> FastAPI:
+def create_app(database_url: str | None = None, *, engine=None, embedder=None) -> FastAPI:
     # Supplying an engine lets tests use isolated SQLite databases. Importing
     # this module neither connects to a database nor initializes user state.
     database = engine or build_engine(
@@ -39,6 +46,7 @@ def create_app(database_url: str | None = None, *, engine=None) -> FastAPI:
         )
     )
     sessions = session_factory(database)
+    memory_store = PostgresMemory(sessions, embedder or configured_embedder())
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -82,6 +90,7 @@ def create_app(database_url: str | None = None, *, engine=None) -> FastAPI:
     def ready(session: Session = dependency):
         session.execute(text("SELECT 1"))
         session.execute(select(Project.id).limit(1))
+        session.execute(select(ContextIndex.id).limit(1))
         return {"status": "ready"}
 
     @app.post("/api/projects", response_model=ProjectOutput, status_code=201)
@@ -152,6 +161,40 @@ def create_app(database_url: str | None = None, *, engine=None) -> FastAPI:
             .where(ContextNode.project_id == project_id, ContextNode.status == "active")
             .order_by(ContextNode.uri)
         ).all()
+
+    @app.get("/api/memory/search", response_model=SearchOutput)
+    def search_memory(payload: Annotated[SearchInput, Query()], session: Session = dependency):
+        project_or_404(session, payload.project_id)
+        result = memory_store.retrieve(
+            MemoryQuery(
+                text=payload.q,
+                user_id=USER_ID,
+                project_id=payload.project_id,
+                top_k=payload.top_k,
+                max_tokens=payload.max_tokens,
+                tiers=tuple(payload.tiers.split(",")),
+                include_details=payload.include_details,
+                as_of=payload.as_of,
+            )
+        )
+        return {
+            "hits": result.context.hits,
+            "context": result.context.text,
+            "estimated_tokens": result.context.estimated_tokens,
+            "truncated": result.context.truncated,
+            "embedding_model": result.embedding_model,
+            "warnings": result.warnings,
+            "stages": result.stages,
+        }
+
+    @app.post(
+        "/api/projects/{project_id}/context/reindex", response_model=JobOutput, status_code=202
+    )
+    def reindex(project_id: str, session: Session = dependency):
+        project_or_404(session, project_id)
+        session.execute(select(Project).where(Project.id == project_id).with_for_update())
+        refresh_indexes(session, project_id)
+        return enqueue_index(session, project_id)
 
     @app.get("/api/memory/{node_id}", response_model=NodeOutput)
     def memory(node_id: str, session: Session = dependency):

@@ -1,8 +1,9 @@
 # Si-agent Copilot backend
 
 Si-agent adds a single-user, multi-project product layer to the Waku core.
-The week 2 release stores projects and documents in PostgreSQL, accepts durable
-import jobs, and exposes a React context browser. It keeps the existing local
+The product stores projects and documents in PostgreSQL, accepts durable import
+and index jobs, and exposes cited hybrid retrieval in a React context browser.
+It keeps the existing local
 Waku CLI and SQLite memory path separate.
 
 ## Start the product
@@ -22,7 +23,8 @@ published port in the product configuration.
 
 The console can create a project, submit a document, show its job status,
 browse the generated directories, and display source content and evidence.
-No model credentials are required for this release.
+Compose uses labeled demo vectors without credentials. See [memory retrieval](copilot-memory.md)
+for real embedding configuration, scope filters, reindexing, and current limits.
 
 Run the smoke test after startup:
 
@@ -31,7 +33,7 @@ python scripts/smoke_copilot.py
 ```
 
 The test creates a fresh project. It checks readiness, duplicate submission,
-worker completion, source inspection, and thread creation. It never clears
+worker/import/index completion, cited retrieval, source inspection, and thread creation. It never clears
 existing memory or projects.
 
 Stop services with `docker compose -f infra/compose.yaml down`. The named

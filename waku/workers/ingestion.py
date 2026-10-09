@@ -1,7 +1,7 @@
 """Transactional document import into the project context namespace.
 
-Week 2 stores source documents and deterministic previews. Generated semantic
-summaries, chunking, embeddings, and hierarchical retrieval arrive in week 3.
+Imports store source documents and extractive previews, refresh lexical tiers,
+and queue vector indexing. Generated summaries and chunks follow in week 4.
 """
 
 from hashlib import sha256
@@ -10,6 +10,7 @@ from urllib.parse import quote
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.storage.models import ContextNode, Job, Project
 
 
@@ -78,4 +79,11 @@ def import_documents(session: Session, job: Job) -> dict:
         node.search_vector = None
         imported += 1
     session.flush()
-    return {"imported": imported, "unchanged": unchanged, "root_uri": root}
+    refresh_indexes(session, project.id)
+    indexing = enqueue_index(session, project.id)
+    return {
+        "imported": imported,
+        "unchanged": unchanged,
+        "root_uri": root,
+        "index_job_id": indexing.id,
+    }

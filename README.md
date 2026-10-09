@@ -6,10 +6,11 @@
 # waku-agent
 
 **Si-agent Project Context Copilot:** this derivative adds a PostgreSQL-backed
-project API, durable imports, and an independent React console. Run
+project API, durable imports, cited tiered hybrid retrieval, and an independent React console. Run
 `docker compose -f infra/compose.yaml up -d --build` and open
 `http://127.0.0.1:8080`. See [the product guide](docs/copilot-backend.md) for
-the current capabilities and upcoming memory milestones. The original Waku
+the current capabilities and [memory configuration](docs/copilot-memory.md).
+The [roadmap](docs/copilot-roadmap.md) schedules Langfuse tracing. The original Waku
 core below retains its attribution and local assistant interface.
 
 **Your own AI assistant. On your laptop. In code you can read in an afternoon.**

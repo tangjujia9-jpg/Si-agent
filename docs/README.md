@@ -31,6 +31,9 @@ into four groups.
 | [architecture.md](architecture.md) | the four pillars, and which file is which diagram box |
 | [copilot-backend.md](copilot-backend.md) | Si-agent API, PostgreSQL, import worker, Docker, and verification |
 | [copilot-week2-release.md](copilot-week2-release.md) | Week 2 changes, verification results, and remaining milestones |
+| [copilot-memory.md](copilot-memory.md) | Tier indexing, embedding configuration, hybrid retrieval, scope and citations |
+| [copilot-week3-release.md](copilot-week3-release.md) | Week 3 changes, verification and current memory limits |
+| [copilot-roadmap.md](copilot-roadmap.md) | Remaining milestones and the Langfuse tracing acceptance plan |
 | [context-copilot-design.md](context-copilot-design.md) | Project Copilot contracts and the FTS5 baseline |
 | [WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md](WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md) | Chinese source walkthrough and architecture learning notes |
 | [loop-vs-graph.md](loop-vs-graph.md) | when a turn needs shape, and why the loop never changes |

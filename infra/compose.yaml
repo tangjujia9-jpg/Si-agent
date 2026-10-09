@@ -19,6 +19,10 @@ services:
       dockerfile: infra/Dockerfile.api
     environment: &database
       SI_DATABASE_URL: postgresql+psycopg://si:${SI_DB_PASSWORD:-si-local}@db:5432/si_agent
+      SI_EMBEDDING_BACKEND: ${SI_EMBEDDING_BACKEND:-hash-demo}
+      SI_EMBEDDING_BASE_URL: ${SI_EMBEDDING_BASE_URL:-}
+      SI_EMBEDDING_MODEL: ${SI_EMBEDDING_MODEL:-}
+      SI_EMBEDDING_API_KEY: ${SI_EMBEDDING_API_KEY:-}
     command: [alembic, upgrade, head]
     depends_on:
       db:

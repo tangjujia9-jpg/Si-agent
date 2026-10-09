@@ -12,8 +12,10 @@ import time
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, case, or_, select
 
+from waku.memory.embeddings import configured_embedder
+from waku.memory.indexing import process_index
 from waku.storage.database import build_engine, session_factory
 from waku.storage.models import Job, now
 from waku.workers.ingestion import import_documents
@@ -32,7 +34,7 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
                     and_(Job.status == "running", Job.lease_until <= current),
                 )
             )
-            .order_by(Job.available_at, Job.id)
+            .order_by(case((Job.kind == "ingest", 0), else_=1), Job.available_at, Job.id)
             .with_for_update(skip_locked=True)
             .limit(1)
         )
@@ -51,8 +53,13 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
         return job.id, job.lease_token
 
 
-def process(sessions, job_id: str, token: str) -> bool:
+def process(sessions, job_id: str, token: str, embedder=None) -> bool:
     try:
+        with sessions() as session:
+            job = session.get(Job, job_id)
+            is_index = job is not None and job.kind == "index"
+        if is_index:
+            return process_index(sessions, job_id, token, embedder)
         with sessions.begin() as session:
             job = session.scalar(
                 select(Job)
@@ -81,16 +88,16 @@ def process(sessions, job_id: str, token: str) -> bool:
                 job.available_at = now() + timedelta(seconds=2**job.attempts)
                 job.lease_until = None
                 job.lease_token = None
-                job.error = f"Import failed ({type(exc).__name__})"
+                job.error = f"Job failed ({type(exc).__name__})"
         LOG.warning("Job %s failed (%s)", job_id, type(exc).__name__)
         return False
 
 
-def run_once(sessions) -> bool:
+def run_once(sessions, embedder=None) -> bool:
     claimed = claim(sessions)
     if claimed is None:
         return False
-    process(sessions, *claimed)
+    process(sessions, *claimed, embedder=embedder)
     return True
 
 
@@ -104,9 +111,10 @@ def main():
         parser.error("SI_DATABASE_URL is required")
     engine = build_engine(url)
     sessions = session_factory(engine)
+    embedder = configured_embedder()
     try:
         while True:
-            worked = run_once(sessions)
+            worked = run_once(sessions, embedder=embedder)
             if args.once:
                 break
             if not worked:
