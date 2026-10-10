@@ -89,7 +89,7 @@ def test_project_import_worker_and_inspection_round_trip(backend):
     assert completed["result"]["imported"] == 1
     tree = client.get(f"/api/projects/{pid}/context/tree").json()
     node = next(n for n in tree if n["kind"] == "resource")
-    assert node["uri"] == f"waku://users/default/projects/{pid}/resources/docs/design.md"
+    assert node["uri"] == f"si://users/default/projects/{pid}/resources/docs/design.md"
     assert node["source_event_ids"] == [job["id"]]
     assert client.get(f"/api/memory/{node['id']}").json()["content"] == "# Alpha\n\nUse pgvector."
     assert client.post("/api/threads", json={"project_id": pid}).status_code == 201

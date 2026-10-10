@@ -1,124 +1,135 @@
-# Project memory retrieval
+# Si-agent Memory v1：索引、检索和证据
 
-Si-agent retrieves project-scoped evidence through `PostgresMemory`, the week 3
-read/write adapter for `MemoryPort`. The existing local Waku memory and loop
-keep their behavior. Agent chat integration follows the runtime milestone.
+Memory v1 将用户导入的项目资料保存为 `si://` 节点，建立 L0/L1/L2 表示，
+通过关键词与向量检索返回可检查的证据上下文。当前版本完成检索和上下文组装，
+尚未把它接入旧 Agent Loop 生成回答。
 
-## Import and indexing
+## Memory Port 与适配器
 
-An import transaction writes original documents, refreshes directory previews
-and lexical tier indexes, and enqueues a vector index job. Its result includes
-`index_job_id`; a completed import does not mean embeddings have finished.
-The worker embeds outside database transactions, then checks its lease token
-and each representation's revision/body before committing vectors. A newer
-document revision invalidates previous vectors immediately. Failed embedding
-jobs retry through the existing leased job runner; lexical search remains usable.
-The worker renews its lease between bounded embedding batches and stops making
-requests if another worker owns the job.
+`waku/memory/port.py` 使用标准库 `Protocol` 描述 `search`、`write`、`get`、
+`list_children` 和 `forget`。业务方依赖这些能力，具体存储由适配器实现。
+`waku/memory/postgres.py` 的 `PostgresMemory` 实现前四项，`forget` 明确抛出
+未实现错误，等待第四周 tombstone，避免用状态标记造成已删除记忆复活。
 
-`context_indexes` stores one representation per node/tier:
+`write(MemoryWrite)` 校验用户、项目与规范 URI，补齐父目录，在一个事务中
+保存正文、来源事件、revision、幂等凭据，刷新全文索引并排队向量任务。
+相同请求重试返回同一凭据，幂等键对应不同请求会报错。调用方可以显式指定
+`supersedes_id` 替代同项目旧节点；系统尚未自动推理冲突。
+这个接口目前是 Python 内部能力，控制台导入走独立 ingestion 路径，没有公开记忆编辑接口。
 
-| Tier | Leaf representation | Directory representation |
+## 虚拟目录与层级表示
+
+```text
+si://users/default/projects/{project_id}/
+  resources/docs/design.md
+  decisions/database.md
+```
+
+URI 是数据库中的逻辑地址，不代表宿主机的实际文件。导入路径组织到 resources；
+决策路径可通过 Memory Port 写入。personal、skills 和跨项目授权仍待实现。
+
+| 层级 | 叶节点表示 | 目录表示 |
 |---|---|---|
-| L0 | First nonempty source line, at most 240 characters | Child abstracts/titles, at most 600 characters |
-| L1 | First 1,200 source characters | Child overviews, at most 6,000 characters |
-| L2 | Full original source | No detail index |
+| L0 abstract | 首个非空行，最多 240 字符 | 聚合子节点 abstract，最多 600 字符 |
+| L1 overview | 正文前 1200 字符 | 聚合子节点 overview，最多 6000 字符 |
+| L2 detail | 完整正文 | 不为目录创建 L2 |
 
-These are extractive previews, not model-generated semantic summaries. Vector
-inputs include the title and at most 6,000 characters of each representation.
-Long-document chunking and generated summaries belong to week 4. Lexical L2
-search indexes the full source and centers returned snippets around query terms.
+这些表示由确定性规则抽取，尚未使用 LLM 概括。`context_nodes` 保存原文与元数据，
+`context_indexes` 保存每个层级的 body、全文索引、embedding、embedding_model 和 revision。
+索引刷新不会把 L2 原文截成 1200 字符；但当前 embedding 输入截到 6000 字符，
+长文后段的语义覆盖需要第四周分块改善。
 
-## Configure embeddings
+## 写入与异步 embedding
 
-Native API/worker processes default to `SI_EMBEDDING_BACKEND=none`, which enables
-lexical retrieval without making external requests. Compose defaults to
-`hash-demo`, which exercises pgvector/RRF without credentials. Hash vectors
-match token overlap; they do not understand paraphrases. The API and console
-display this limitation. Tests use a separate scripted semantic oracle to prove
-that a vector-only match reaches the result; this is not a quality benchmark.
-
-To use an explicitly configured backend, set the same values for API and worker:
-
-```powershell
-$env:SI_EMBEDDING_BACKEND = 'openai-compatible'
-$env:SI_EMBEDDING_BASE_URL = 'http://127.0.0.1:11434/v1'
-$env:SI_EMBEDDING_MODEL = 'your-1536-dimensional-embedding-model'
-$env:SI_EMBEDDING_API_KEY = 'your-backend-key-if-required'
+```text
+POST ingest → queued ingest job → Worker 写原文与层级全文索引
+  → 同一事务排队 index job → HTTP 可查询原文与关键词
+  → Worker 读取索引快照 → 事务外批量 embedding
+  → 校验 lease token、revision、body → 保存向量 → index succeeded
 ```
 
-The endpoint must support `POST /embeddings` and return 1,536-dimensional,
-finite, nonzero vectors. The current schema deliberately rejects other dimensions.
-The adapter sends batches of at most 16 texts with a 20-second request timeout.
-Credentials stay on the backend. Configuring a remote endpoint sends source
-previews and search queries to that endpoint. No embedding request runs at import
-or installation time. Model identity includes the endpoint and model name, so
-vectors from different providers cannot silently mix.
+导入成功不等于向量就绪。导入结果中的 `index_job_id` 指向第二个任务，
+可通过任务接口查看。界面当前主要跟踪 ingest；检索响应另有索引覆盖和降级提示。
+索引 Worker 分批计算、续租、有限重试，并跳过在计算期间被修改的快照，
+防止旧向量覆盖新内容。embedding 失败时关键词仍可检索。
 
-Changing models requires reindexing existing projects. After upgrading week 2,
-existing sources need a reindex too; migrations preserve their original content:
+异步指资料向量化在后台执行。查询时需要查询向量，因此 query embedding
+仍在搜索请求内同步完成；配置远程服务后，此步骤会增加查询耗时。
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/projects/PROJECT_ID/context/reindex
+## embedding 配置
+
+| `SI_EMBEDDING_BACKEND` | 行为 |
+|---|---|
+| `none` | 不调用 embedding，执行关键词检索；本机默认 |
+| `hash-demo` | 离线、确定性 1536 维哈希演示向量；Compose 默认，不具备语义理解 |
+| `openai-compatible` | 后端请求 `{base_url}/embeddings`；需要显式配置模型与端点 |
+
+真实服务还需要 `SI_EMBEDDING_BASE_URL`、`SI_EMBEDDING_MODEL`，按需设置
+`SI_EMBEDDING_API_KEY`。这是兼容协议，不限定模型厂商。当前表结构固定 1536 维，
+服务必须返回此维数；代码拒绝 NaN、零向量与数量不符。
+一次最多 16 条、超时 20 秒。API 和 Worker 必须使用相同配置，模型标识包含端点
+指纹与模型名，检索不会混用不同模型向量。切换模型后调用 reindex 并等待任务完成。
+
+## 查询时的混合检索
+
+入口是 `GET /api/memory/search`，经 `MemoryQuery` 调用
+`PostgresMemory.retrieve()`。混合检索就在这个读取阶段执行，而非导入阶段：
+
+1. 校验项目归属，再按配置计算 query embedding。
+2. 排除跨项目、非 active、过期或 revision 不符的索引。
+3. 对 L0 目录分别进行关键词与向量召回，RRF 融合后保留少量候选。
+4. 细化 L1 目录，再检索所需层级的叶节点。
+5. 额外执行项目范围叶节点召回，避免截断的目录摘要漏掉正文中的相关事实。
+6. 融合排名、去重与 top_k，提取片段，再按上下文预算组装。
+
+PostgreSQL 关键词路径是 `tsvector @@ to_tsquery` 和 `ts_rank_cd`，支持 GIN
+索引；它不等同于 BM25。分词包含英文单词与中文 unigram/bigram，尚非完整中文 NLP。
+向量路径是 pgvector 余弦距离，当前采用精确搜索而非 HNSW/IVFFlat。
+每一支贡献 `1/(60+rank)` 的 RRF 分数；目录命中给予少量优先级。
+系统尚未添加 cross-encoder reranker 或新的 LLM Retrieval Gate。
+SQLite 适配使用 Python 的关键词计数与余弦计算，只验证流程和边界，不代表 pgvector 性能。
+
+## 证据从哪里来
+
+```text
+用户导入原文 → ContextNode.content / source_event_ids=[ingest_job_id]
+  → ContextIndex.body → 检索命中 → MemoryHit.snippet / evidence_ids
+  → compile_context → [si://...] + 层级 + 来源事件 + 正文片段
 ```
 
-Reindex rebuilds extractive previews/lexical rows and queues vector work. Check
-the returned job through `GET /api/jobs/{id}`. Matching vectors are reused;
-model/endpoint changes regenerate them. A backend that changes weights while
-retaining both endpoint and model name should publish a new model identifier.
+`MemoryHit` 包含节点 ID、URI、层级、片段、分数、来源类型、项目、有效时间和
+evidence IDs。关键词片段从匹配附近截取；纯向量命中可能取原文开头。
+React 可以根据节点 ID 打开完整原文。证据标识说明资料从哪次导入而来，
+不证明资料正确，也不保证片段一定完整支持结论。
+独立 evidence 表、精确字符偏移、历史内容版本和自动事实抽取待后续实现。
 
-## Retrieval stages
+示例上下文：
 
-`GET /api/memory/search?project_id=PROJECT_ID&q=pgvector&tiers=l2`
-returns structured hits and compiled context. Scope is mandatory: the adapter
-checks project ownership before a remote query embedding call. Every candidate
-query filters project, active status, index revision, and the half-open validity
-interval `[valid_from, valid_to)` at `as_of` or now.
+```text
+[si://users/default/projects/p/resources/docs/design.md] (l2, evidence: ingest-job-id)
+使用 PostgreSQL 保存项目资料，通过 pgvector 和全文检索返回引用证据。
+```
 
-1. The backend embeds the query when configured; failure falls back to lexical.
-2. L0 hybrid retrieval selects up to six directories.
-3. L1 retrieval refines those directories and their children; an empty branch
-   falls back to global directory overviews.
-4. Requested leaf tiers search selected parents and the full project. Global
-   rescue prevents a truncated overview from hiding matching L2 content.
-5. PostgreSQL combines `tsvector`/`ts_rank_cd` and exact pgvector cosine search.
-   Lexical terms use Unicode words and CJK unigrams/bigrams. This is PostgreSQL
-   full-text ranking, not BM25. Cosine similarity must exceed 0.2.
-6. Reciprocal rank fusion uses `1 / (60 + rank)` per branch and a small directory
-   bonus. The backend deduplicates by URI/node and prefers a deeper tier on ties.
-7. The context compiler selects snippets within a conservative UTF-8 byte budget.
-   It preserves whole URI headers and UTF-8 boundaries, and returns only evidence
-   that actually fits. Provider-specific token/window checks remain future work.
+`waku/memory/context.py` 保留完整引用头，片段截断不破坏 UTF-8。
+字段虽然叫 `estimated_tokens`，当前实现实际按 UTF-8 字节保守计数，并非模型 tokenizer。
+生成接入后仍需计算 system prompt、历史消息、工具 schema 和输出余量的整体预算。
 
-Exact vector search avoids ANN's filtered-recall pitfalls at this project size.
-The lexical index uses GIN. Larger corpora need measured latency/recall before
-introducing HNSW, rerankers, or a different segmentation strategy. RRF scores
-are ranking signals, not probabilities. There is no paid cross-encoder reranker
-or LLM retrieval gate in this milestone.
+## 当前 RAG 的完成范围
 
-The response includes `hits`, `context`, `estimated_tokens`, `truncated`,
-`embedding_model`, `warnings`, and `stages`. A hit carries its URI, tier, source,
-scope, validity and originating event IDs. Stage metadata contains candidate
-counts and observed durations, without query/document bodies. These values
-prepare later tracing; they are not persistent Langfuse traces.
+导入、表示、索引、检索、上下文组装构成 RAG 的准备与 Retrieval 部分。
+下一步应在 Session/Context Compiler 中调用这个 Port，把带引用上下文注入模型请求，
+再通过生成与 groundedness 评测验证回答。当前 React 查询不会调用生成模型，
+旧 CLI 的 `Session.build_system()` 已调用 `Memory.gated_retrieve()`，将
+facts/episodes 加入 `Relevant memory` 后交给旧 Loop 生成回答，属于既有的
+记忆增强生成。它仍走原记忆链路，尚未使用新的项目 Port 与 `si://` 证据。
+因此当前新控制台的检索演示尚不能称为完整的项目 RAG Agent。
 
-`as_of` filters currently active records. It cannot reconstruct overwritten
-content or historical supersession states; version snapshots arrive in week 4.
+## 验证与后续工作
 
-## Memory writes
+确定性测试位于 `evals/deterministic/test_copilot_memory.py`，覆盖范围隔离、有效期、
+幂等写入、显式替代、预算、中文尾部召回、向量单独召回、模型隔离、租约和快照变化。
+语义 fixture 验证程序分支，hash-demo 验证可复现链路，都不能证明真实 embedding 的检索质量。
+真实 PostgreSQL/pgvector 和 Compose 由 Copilot CI 验证。
 
-`write(MemoryWrite)` validates canonical project-local URIs, creates missing
-directory parents, serializes writes with a project lock, and persists an
-idempotency receipt. Reusing a key with another payload fails. Evidence IDs are
-retained. A same-URI update increments revision; an explicit `supersedes_id`
-must refer to another node in the same project and retires that node from search.
-
-`get()` and `list_children()` respect user scope. `forget()` deliberately raises
-`NotImplementedError`: setting a retracted flag alone could permit old chat or
-imports to restore forgotten data. Week 4 implements durable tombstones before
-exposing a forget API. Full historical versions, evidence tables, candidate
-extraction, and metadata persistence beyond IDs/revision are also week 4 work.
-
-SQLite supports the same public retrieval behavior for offline tests, but its
-lexical/vector calculations are Python fallbacks. Tests against PostgreSQL run
-real migrations, `tsvector` and pgvector SQL in isolated schemas.
+第四周推进分块、候选事实、版本、冲突和 tombstone；第五周接 Runtime 与 Langfuse。
+详见[开发路线图](copilot-roadmap.md)与[第三周验收报告](copilot-week3-release.md)。

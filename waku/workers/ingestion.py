@@ -21,7 +21,7 @@ def import_documents(session: Session, job: Job) -> dict:
     # Serialize writes within a project. This also guards concurrent imports
     # of the same URI arriving with different idempotency keys.
     session.execute(select(Project).where(Project.id == project.id).with_for_update())
-    root = f"waku://users/{quote(project.user_id, safe='')}/projects/{project.id}"
+    root = f"si://users/{quote(project.user_id, safe='')}/projects/{project.id}"
     nodes = {
         n.uri: n
         for n in session.scalars(select(ContextNode).where(ContextNode.project_id == project.id))

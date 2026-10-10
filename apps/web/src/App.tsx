@@ -117,7 +117,7 @@ export function App() {
             {job && <div className="job" role="status"><b>{job.status}</b><span>Attempt {job.attempts} · {job.id.slice(0, 8)}</span>{job.error && <p>{job.error}</p>}</div>}
           </section>
           <section className="panel tree-panel"><div className="panel-heading"><h2>Context explorer</h2><span>02</span></div>
-            <div className="namespace">waku://users/default/projects/…</div>
+            <div className="namespace">si://users/default/projects/…</div>
             {!nodes.length ? <p className="placeholder">Import your first source to create the context tree.</p> : <div className="tree" role="list">
               {nodes.map(n => <button key={n.id} className={selected?.id === n.id ? 'tree-node chosen' : 'tree-node'}
                 style={{ paddingLeft: `${12 + Math.max(0, n.uri.split('/').length - 7) * 14}px` }}

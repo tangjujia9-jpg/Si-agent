@@ -29,12 +29,13 @@ into four groups.
 | file | what it answers |
 |---|---|
 | [architecture.md](architecture.md) | the four pillars, and which file is which diagram box |
-| [copilot-backend.md](copilot-backend.md) | Si-agent API, PostgreSQL, import worker, Docker, and verification |
-| [copilot-week2-release.md](copilot-week2-release.md) | Week 2 changes, verification results, and remaining milestones |
-| [copilot-memory.md](copilot-memory.md) | Tier indexing, embedding configuration, hybrid retrieval, scope and citations |
-| [copilot-week3-release.md](copilot-week3-release.md) | Week 3 changes, verification and current memory limits |
-| [copilot-roadmap.md](copilot-roadmap.md) | Remaining milestones and the Langfuse tracing acceptance plan |
-| [context-copilot-design.md](context-copilot-design.md) | Project Copilot contracts and the FTS5 baseline |
+| [copilot-progress.zh-CN.md](copilot-progress.zh-CN.md) | 三周进展、领域契约、数据库、Harness、RAG、证据和 CI 导读 |
+| [copilot-backend.md](copilot-backend.md) | 中文后端手册：API、PostgreSQL、Worker、迁移与 Docker |
+| [copilot-week2-release.md](copilot-week2-release.md) | 第二周中文验收报告：变化、验证与限制 |
+| [copilot-memory.md](copilot-memory.md) | 中文记忆设计：分层表示、embedding、混合检索与引用 |
+| [copilot-week3-release.md](copilot-week3-release.md) | 第三周中文验收报告：已实现链路与验收边界 |
+| [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
+| [context-copilot-design.md](context-copilot-design.md) | 第一周中文设计记录：领域契约与 FTS5 基线 |
 | [WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md](WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md) | Chinese source walkthrough and architecture learning notes |
 | [loop-vs-graph.md](loop-vs-graph.md) | when a turn needs shape, and why the loop never changes |
 | [agent-graphs-design.md](agent-graphs-design.md) | the graph engine's design and its fail-open rule |

@@ -14,13 +14,13 @@ def test_run_context_carries_scope_and_hard_limits():
     context = RunContext(
         run_id="run-1",
         user_id="me",
-        project_id="waku",
+        project_id="si",
         session_id="session-1",
         model="anthropic/claude",
         budget=Budget(max_iterations=3, max_tokens=900, max_tool_calls=4),
     )
 
-    assert context.scope() == {"user_id": "me", "project_id": "waku"}
+    assert context.scope() == {"user_id": "me", "project_id": "si"}
     assert context.budget.max_tool_calls == 4
 
 
@@ -54,11 +54,11 @@ def test_tool_result_is_serializable_and_preserves_partial_state():
 
 def test_memory_nodes_and_hits_are_citable():
     node = MemoryNode(
-        uri="waku://users/me/projects/waku/decisions/provider.md",
+        uri="si://users/me/projects/si/decisions/provider.md",
         kind="decision",
         title="Provider decision",
         abstract="The project uses a provider-neutral model port.",
-        project_id="waku",
+        project_id="si",
         confidence=0.95,
         created_at=datetime.now(UTC),
     )
@@ -69,7 +69,7 @@ def test_memory_nodes_and_hits_are_citable():
         snippet=node.abstract,
         score=0.87,
         source="project-import",
-        project_scope="waku",
+        project_scope="si",
         evidence_ids=("event-1",),
     )
 

@@ -1,71 +1,56 @@
-# Project Context Copilot: Week 1 Contracts
+# Si-agent 第一周：领域契约与基线
 
-This document records the first implementation step of the Project Context
-Copilot redesign. It is intentionally narrower than the final product plan:
-the goal of week 1 is to make subsystem boundaries testable before changing
-the existing loop or SQLite memory path.
+第一周定义了子系统之间传递的数据与接口，并记录了原有 FTS5 检索基线。
+契约使用 Python 标准库的 `dataclass`、`Protocol`、`typing`、`datetime`。
+“无第三方依赖”只描述契约层，不代表整个项目没有第三方依赖。
 
-## Product boundary
+## 领域契约的含义与作用
 
-The product is a single-user, multi-project knowledge copilot. A project can
-ingest documents, answer questions with inspectable evidence, and retain
-versioned facts and decisions across sessions. The first release uses
-PostgreSQL and pgvector as its product storage, while the current SQLite
-implementation remains the local baseline and compatibility path.
+契约约定调用需要哪些信息、返回值是什么、哪些状态合法。调用方依赖这些
+约定，实现方可以替换数据库、模型 SDK 或记忆后端。
 
-## Contract layers
-
-The new dependency-free contracts live in four places:
-
-| Contract | Location | Responsibility |
+| 契约 | 所在文件 | 表达的内容 |
 |---|---|---|
-| Domain values | `waku/domain/contracts.py` | Run identity, budgets, memory evidence, structured tool results |
-| Memory port | `waku/memory/port.py` | Scoped search, inspectable nodes, idempotent writes, forget |
-| Provider port | `waku/providers/contracts.py` | Model references, capabilities, completion, streaming and usage |
-| FTS5 baseline | `scripts/benchmark_memory_baseline.py` | Repeatable measurements of today's local keyword retrieval |
+| `Budget` | `waku/domain/contracts.py` | 迭代、token、工具次数与超时限制 |
+| `RunContext` | 同上 | run、用户、项目、会话、模型、预算与策略 |
+| `ToolResult` | 同上 | 成功、失败、部分完成、结果未知，以及操作 ID |
+| `MemoryNode` / `MemoryHit` | 同上 | 节点与包含 URI、来源、有效期的检索证据 |
+| `MemoryPort` | `waku/memory/port.py` | 搜索、写入、读取、目录浏览与忘记接口 |
+| `ProviderPort` | `waku/providers/contracts.py` | 模型调用、流式事件、能力和模型目录 |
 
-The existing `FactStore` contract stays in place while adapters are migrated.
-The richer `MemoryPort` is deliberately separate because a Project Copilot
-needs URI, tier, evidence, scope, and version metadata that a formatted fact
-string cannot carry.
+例如运行层调用 `memory.search(MemoryQuery(...))`，收到 `MemoryHit` 即可读取
+URI 与正文，不必知道底层是 SQLAlchemy、Mem0 还是其他服务。Provider 契约
+同样避免让业务逻辑直接依赖某个厂商的 SDK 对象。
 
-## Harness rules
+`Protocol` 表达接口形状，`dataclass` 承载数据。类型标注不等于完整运行时校验；
+只有 `__post_init__` 等显式检查会在构造时执行。
 
-`RunContext` owns scope and hard limits. A model may suggest a tool call, but it
-cannot remove the iteration, token, tool-count, deadline, approval, or retry
-policy carried by the context. `ToolResult` records partial and unknown states
-so later work can add an outbox without changing the public shape again.
+## 已定义与已接入的区别
 
-Provider adapters return provider-neutral values. The runtime must not depend
-on Anthropic or OpenAI response classes; those belong behind adapters.
+第一周创建了契约、基础校验和离线测试，没有全面重构旧 Loop。
+`Budget` 能拒绝不合法的限制值，但不会自己中断工具或模型调用。
+deadline、审批、重试和工具次数限制需要 Harness 主动执行。
+`ToolResult` 尚未成为所有旧工具的统一返回格式。
+`ProviderPort` 已定义，多厂商运行适配与 handoff 仍在后续计划。
 
-## Current FTS5 baseline
+第三周 `PostgresMemory` 已实现记忆读写与检索；忘记功能等待 tombstone。
+因此不能把“接口存在”写成“所有能力已经上线”。
 
-Run:
+## FTS5 基线
 
-```bash
-python scripts/benchmark_memory_baseline.py
-```
+运行 `python scripts/benchmark_memory_baseline.py`。脚本只使用内存数据库，
+不读取或清空原有运行数据。
 
-The benchmark uses an in-memory database and does not read or clear `.waku/`.
-The expected baseline is:
-
-| Case | Expected result |
+| 查询 | 基线行为 |
 |---|---|
-| Exact keywords (`morning meetings`) | Hit |
-| Paraphrase (`early-day syncs`) | Miss: semantic similarity is unavailable |
-| Unicode exact (`Сергей`) | Hit |
-| Empty query | No results |
+| `morning meetings` | 命中精确关键词 |
+| `early-day syncs` | 未命中，不理解语义改写 |
+| `Сергей` | 命中 Unicode 精确词 |
+| 空查询 | 无结果 |
 
-This baseline is a measurement, not a desired product behavior. The pgvector
-implementation should improve paraphrase recall while preserving scope,
-evidence, and deterministic empty-query behavior.
+这份基线记录原行为，方便比较新方案。第三周证明向量分支能参与召回，尚未
+用真实 embedding 模型完成有代表性的数据集质量基准。
 
-## Next step
-
-Week 2 added the PostgreSQL schema, project API, import worker, and source
-console; see [the product guide](copilot-backend.md). The full `MemoryPort`
-adapter and hybrid retrieval are implemented in week 3; see [memory retrieval](copilot-memory.md).
-Forget remains deferred until durable tombstones exist. The new product will not replace
-the current Waku turn path until its memory adapter passes conformance tests
-and the baseline comparison.
+产品名称为 Si-agent，虚拟目录采用 `si://`。代码暂时保留 `waku/` 包路径和
+原兼容入口，作者署名与许可证保持可追溯。
+继续阅读：[三周总览](copilot-progress.zh-CN.md)、[记忆设计](copilot-memory.md)。

@@ -6,8 +6,10 @@ lists those under "What CI blocks".
 
 ## 1. Language
 
-Everything written into the repo is English: code, comments, docs, commit
-messages, and issue and PR titles. Conversation can be in any language.
+Si-agent Copilot development guides and acceptance reports are written in
+Chinese. Inherited upstream documentation retains its original language.
+Code, comments, commit messages, and issue and PR titles use English.
+Conversation can be in any language.
 
 ## 2. How much process a change needs
 

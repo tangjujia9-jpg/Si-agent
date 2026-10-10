@@ -6,7 +6,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 test('search displays citations and invokes the source inspector', async () => {
   const inspect = vi.fn();
-  const uri = 'waku://users/default/projects/p/resources/design.md';
+  const uri = 'si://users/default/projects/p/resources/design.md';
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     expect(url).toContain('project_id=p'); expect(url).toContain('q=storage');
     return { ok: true, json: async () => ({ hits: [{ id: 'n', uri, tier: 'l2', snippet: 'Use pgvector.', evidence_ids: ['import-1'] }],

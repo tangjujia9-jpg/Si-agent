@@ -1,47 +1,33 @@
-# Si-agent delivery milestones
+# Si-agent 后续开发与验收计划
 
-The product retains Waku's local loop while building a project-scoped memory
-service, inspectable evidence, and a recoverable runtime. Weeks 1 and 2 established
-contracts and persistent document ingestion. Week 3 adds tier indexes, hybrid
-retrieval and cited context. The remaining milestones are:
+前三周已完成契约、持久化导入与带引用的检索。完整产品需要继续接入运行时，
+补齐历史记忆、聊天、观测和质量评测。今后的验收报告使用中文，区分已实现、
+已验证与待实现能力。
 
-| Milestone | Deliverables | Reviewable outcome |
+| 里程碑 | 开发内容 | 验收结果 |
 |---|---|---|
-| Week 4: memory ingestion and consolidation | Long-document chunks, generated summaries, candidates/evidence/versions, conflicts, tombstones, bounded embedding retries | A changed decision retains auditable history; forgetting prevents resurrection |
-| Week 5: runtime, providers and tracing | Provider-neutral loop integration, validated tools, outbox/operation IDs, LangGraph adapter, Langfuse export | One project turn has a complete tool/retrieval/model trace and recoverable states |
-| Week 6: interactive console | Chat/SSE, memory inspector, run trace, model settings | Users answer a project question and open its source/trace from the reply |
-| Week 7: adapters and evaluation | FTS5/hybrid comparison, external adapter experiments, retrieval/agent metrics, Eval Lab | Reproducible datasets report quality, scope leakage, staleness, latency and cost |
-| Week 8: portfolio release | README/demo, CI, recovery/security/license review, benchmark report | A reviewer reproduces the demo in ten minutes |
+| 第四周 | 分块、生成摘要、candidate/evidence/version、冲突、tombstone | 可查决策历史；忘记后旧内容不复活 |
+| 第五周 | 新记忆接入 Loop、Provider、工具校验、operation/outbox、LangGraph、Langfuse | 项目任务有完整调用链、预算控制与可恢复状态 |
+| 第六周 | Chat/SSE、记忆检查台、Run Trace、模型配置 | 回答可打开来源与运行轨迹 |
+| 第七周 | FTS5/hybrid 与外部适配器对比、检索与 Agent 指标、Eval Lab | 可重复评测质量、泄漏、过期、成本和延迟 |
+| 第八周 | README、演示、CI、恢复、安全与许可审查、基准报告 | 面试官十分钟内复现闭环 |
 
-## Langfuse integration decision
+## Langfuse 验收要求
 
-Langfuse is the preferred observability backend for the week 5 runtime milestone.
-The domain event protocol and evaluation contracts remain owned by Si-agent.
-Langfuse provides observation storage and exploration through an optional adapter;
-running the product without Langfuse must continue to work.
+Langfuse 是第五周优先观测后端。Si-agent 拥有事件协议、运行记录和评测标准，
+Langfuse 通过可选适配器提供存储与查询；未启用时产品仍可运行。
 
-The implementation must cover:
+- 每次运行有根 trace，关联用户、项目、会话、run 和模型。
+- span 包围真实操作，记录异常、重试、取消和超时。
+- 检索阶段包含 scope/gate、query embedding、L0/L1、两路召回、融合、L2 与预算。
+- 导入和索引关联 job、node、revision 和 evidence ID。
+- 摘要、consolidation、judge 等 Loop 外调用也统计 usage 与成本。
+- 工具记录结构化状态与 operation ID，区分估算和实际收费。
+- 持久化与导出前脱敏，原文和 prompt 收集可配置，密钥不进入事件。
+- 导出异步且有界，关闭时 flush，失败不能破坏业务运行。
+- 验证固定版本的 SDK/OTel 协议、鉴权与属性映射。
+- 分数记录对应运行、证据、evaluator、版本、judge 模型与数据集。
 
-- One root per run, associated with project/user/session/run IDs and model identity.
-- Real spans that begin before and end after each operation, including failed
-  attempts, retries, cancellation and timeout. Completion-only event spans cannot
-  represent operation durations accurately.
-- Retrieval children for gate/scope, query embedding, L0 selection, L1 refinement,
-  lexical/vector candidates, fusion/reranking, L2 expansion and context compilation.
-- Index/ingestion jobs correlated by job IDs, node IDs, revision and evidence IDs.
-- Provider calls outside the main loop, including summaries, consolidation and judges.
-- Structured ToolResult states and operation IDs; estimated cost distinguished
-  from measured usage/actual charges.
-- Explicit collection policy and redaction before persistence/export. Raw source
-  and prompt collection must be configurable; credentials never enter events.
-- Bounded asynchronous export, flush on shutdown, and failures isolated from
-  business execution. SDK or OTel transport/auth mapping must be tested against
-  the pinned Langfuse integration rather than assuming any OTLP URL works.
-- Scores attached to the correct run/evidence, with evaluator/version/model and
-  dataset identity. Online checks remain separate from runtime budget enforcement.
-
-Use fake/in-memory sinks for deterministic tests and an opt-in self-hosted
-Langfuse Compose profile for integration tests. Acceptance checks must verify
-parent/child correlation, actual duration ranges, redaction, concurrent runs,
-exporter failure isolation, and token totals across auxiliary calls. Langfuse
-credentials belong in backend configuration and never in React bundles.
+确定性测试用内存 sink，集成测试用可选的自托管 Langfuse Compose profile。
+验收检查父子关联、持续时间、并发、脱敏、导出降级和辅助调用 token 总数。
+在线质量检查与运行时硬预算分别测试。

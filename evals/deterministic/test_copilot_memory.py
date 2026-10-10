@@ -1,6 +1,8 @@
 """Memory retrieval invariants, with real pgvector and an explicit offline fallback."""
 
 from datetime import UTC, datetime
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +10,10 @@ pytest.importorskip("fastapi")
 pytest.importorskip("sqlalchemy")
 pytest.importorskip("pgvector")
 
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from evals.deterministic.test_copilot_backend import backend as backend_fixture
 from evals.deterministic.test_copilot_backend import project, submit
@@ -24,6 +29,17 @@ from waku.workers.runner import claim, process, run_once
 backend = backend_fixture
 
 
+def namespace_migration(sessions, method):
+    path = Path(__file__).resolve().parents[2] / "infra/migrations/versions/0003_si_namespace.py"
+    spec = spec_from_file_location("si_namespace_migration", path)
+    migration = module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    with sessions.begin() as session, Operations.context(
+        MigrationContext.configure(session.connection())
+    ):
+        getattr(migration, method)()
+
+
 def imported(backend, content="# Architecture\nUse PostgreSQL and pgvector.", name="Alpha"):
     client, sessions = backend
     pid = project(client, name)
@@ -32,6 +48,74 @@ def imported(backend, content="# Architecture\nUse PostgreSQL and pgvector.", na
     nodes = client.get(f"/api/projects/{pid}/context/tree").json()
     leaf = next(n for n in nodes if n["kind"] == "resource")
     return pid, leaf, job
+
+
+def test_namespace_migration_preserves_evidence_vectors_and_import_identity(backend):
+    client, sessions = backend
+    pid, leaf, job = imported(backend)
+    while run_once(sessions, DemoEmbedder()):
+        pass
+    with sessions() as session:
+        node = session.get(ContextNode, leaf["id"])
+        original = (node.content, node.revision, node.checksum, node.source_event_ids)
+        indexes = {
+            row.id: (row.body, row.embedding_model, list(row.embedding))
+            for row in session.scalars(select(ContextIndex))
+        }
+        root = session.get(Job, job["id"]).result["root_uri"]
+    # Simulate persisted data written by the pre-Si release, then upgrade it.
+    namespace_migration(sessions, "downgrade")
+    with sessions() as session:
+        assert session.get(ContextNode, leaf["id"]).uri.startswith("waku://")
+        assert session.get(Job, job["id"]).result["root_uri"].startswith("waku://")
+    namespace_migration(sessions, "upgrade")
+    with sessions() as session:
+        node = session.get(ContextNode, leaf["id"])
+        assert node.uri == leaf["uri"] and node.parent_uri.startswith("si://")
+        assert (node.content, node.revision, node.checksum, node.source_event_ids) == original
+        assert session.get(Job, job["id"]).result["root_uri"] == root
+        assert {
+            row.id: (row.body, row.embedding_model, list(row.embedding))
+            for row in session.scalars(select(ContextIndex))
+        } == indexes
+        assert all(n.uri.startswith("si://") for n in session.scalars(select(ContextNode)))
+    memory = PostgresMemory(sessions, DemoEmbedder())
+    assert memory.get(leaf["uri"]).source_event_ids == tuple(original[3])
+    assert memory.search(MemoryQuery("pgvector", project_id=pid))[0].id == leaf["id"]
+    submit(
+        client,
+        pid,
+        key="after-rename",
+        docs=[{"path": "docs/design.md", "content": "# Updated\nUse PostgreSQL."}],
+    )
+    run_once(sessions)
+    tree = client.get(f"/api/projects/{pid}/context/tree").json()
+    resources = [n for n in tree if n["kind"] == "resource"]
+    assert len(resources) == 1 and resources[0]["id"] == leaf["id"]
+    assert resources[0]["revision"] == original[1] + 1
+
+
+def test_namespace_collision_rolls_back_without_overwriting(backend):
+    _, sessions = backend
+    pid, leaf, job = imported(backend)
+    namespace_migration(sessions, "downgrade")
+    with sessions.begin() as session:
+        session.add(
+            ContextNode(
+                project_id=pid,
+                uri=leaf["uri"],
+                kind="resource",
+                title="Collision",
+                content="Keep me",
+            )
+        )
+    with pytest.raises(IntegrityError):
+        namespace_migration(sessions, "upgrade")
+    with sessions() as session:
+        assert session.get(ContextNode, leaf["id"]).uri.startswith("waku://")
+        collision = session.scalar(select(ContextNode).where(ContextNode.uri == leaf["uri"]))
+        assert collision.content == "Keep me"
+        assert session.get(Job, job["id"]).result["root_uri"].startswith("waku://")
 
 
 def test_scope_validity_status_and_evidence(backend):
@@ -136,7 +220,7 @@ def test_directory_rescue_chinese_and_overview_only(backend):
 def test_budget_never_breaks_citations_or_utf8():
     hit = MemoryHit(
         "n",
-        "waku://users/default/projects/p/resources/a.md",
+        "si://users/default/projects/p/resources/a.md",
         "l2",
         "记忆" * 500,
         0.1,
@@ -197,7 +281,7 @@ def test_memory_port_write_idempotency_scope_and_supersession(backend):
     pid, _, _ = imported(backend)
     memory = PostgresMemory(sessions)
     assert isinstance(memory, MemoryPort)
-    uri = f"waku://users/default/projects/{pid}/decisions/database.md"
+    uri = f"si://users/default/projects/{pid}/decisions/database.md"
     node = MemoryNode(uri, "episodic", "Database decision", content="Use SQLite", project_id=pid)
     request = MemoryWrite(node, "decision-1", evidence_ids=("event-1",))
     first = memory.write(request)

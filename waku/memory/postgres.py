@@ -23,7 +23,7 @@ from waku.storage.models import ContextIndex, ContextNode, MemoryWriteRecord, Pr
 
 
 def root_uri(user_id: str, project_id: str) -> str:
-    return f"waku://users/{quote(user_id, safe='')}/projects/{quote(project_id, safe='')}"
+    return f"si://users/{quote(user_id, safe='')}/projects/{quote(project_id, safe='')}"
 
 
 def validate_uri(uri: str, user_id: str, project_id: str) -> str | None:

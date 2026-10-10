@@ -1,9 +1,4 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/waku-mark-on-dark.svg">
-  <img src="docs/brand/waku-mark-on-light.svg" alt="Waku" width="76" align="right">
-</picture>
-
-# waku-agent
+# Si-agent
 
 **Si-agent Project Context Copilot:** this derivative adds a PostgreSQL-backed
 project API, durable imports, cited tiered hybrid retrieval, and an independent React console. Run
@@ -12,6 +7,12 @@ project API, durable imports, cited tiered hybrid retrieval, and an independent 
 the current capabilities and [memory configuration](docs/copilot-memory.md).
 The [roadmap](docs/copilot-roadmap.md) schedules Langfuse tracing. The original Waku
 core below retains its attribution and local assistant interface.
+
+中文开发文档：[三周进展与源码导读](docs/copilot-progress.zh-CN.md)、
+[第二周验收](docs/copilot-week2-release.md)、[第三周验收](docs/copilot-week3-release.md)。
+产品命名与虚拟目录采用 Si-agent / `si://`；Python 包和旧命令暂留兼容。
+
+## Upstream Waku learning material and compatibility interface
 
 **Your own AI assistant. On your laptop. In code you can read in an afternoon.**
 

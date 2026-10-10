@@ -6,8 +6,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 test('a completed import refreshes the tree and opens source evidence', async () => {
   let imported = false;
-  const node = { id: 'node-1', uri: 'waku://users/default/projects/p/resources/design.md',
-    parent_uri: 'waku://users/default/projects/p/resources', kind: 'resource', title: 'design.md',
+  const node = { id: 'node-1', uri: 'si://users/default/projects/p/resources/design.md',
+    parent_uri: 'si://users/default/projects/p/resources', kind: 'resource', title: 'design.md',
     abstract: 'A source', overview: 'A source', revision: 1, source_event_ids: ['job-1'] };
   vi.stubGlobal('fetch', vi.fn(async (path: string, init?: RequestInit) => {
     let value: unknown;

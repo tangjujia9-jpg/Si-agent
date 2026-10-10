@@ -1,65 +1,63 @@
-# Week 3: cited project retrieval
+# Si-agent 第三周验收报告：带引用的分层混合检索
 
-Si-agent now searches its project context through tier indexes and returns
-inspectable, budgeted evidence. The React console exposes the same search and
-source-opening workflow.
+第三周让资料可被检索并组装为引用上下文，React 可以展示结果并打开原文。
+新检索服务还没有接入旧 Loop 来生成回答。
 
-## Changes
+## 完成内容
 
-- The PostgreSQL migration adds tier indexes and idempotent memory-write receipts.
-  Existing documents remain intact and can be indexed through the reindex API.
-- `PostgresMemory` implements scoped search, read, child listing and transactional
-  writes. Forget explicitly waits for week 4 tombstones.
-- L0/L1 directory routing prioritizes branches; global L2 rescue preserves matches
-  missing from truncated previews. RRF fuses PostgreSQL full-text and cosine rankings.
-- Import transactions update lexical indexes and enqueue vector jobs. External
-  embeddings run outside transactions; lease/revision checks reject stale writes.
-- The backend supports no-embedding mode, explicitly labeled hash demo vectors,
-  and configured OpenAI-compatible 1,536-dimensional embeddings.
-- Context compilation preserves complete URI citations, evidence IDs and UTF-8
-  boundaries within a conservative byte budget. Retrieval responses expose stage
-  counts/durations and fallback warnings.
-- The React search panel displays source hits, tiers, citations, compiled context
-  and stage metadata. Project changes cancel pending searches.
-- The roadmap schedules Langfuse for the week 5 Harness milestone, with real span
-  durations, run/job/evidence correlation, redaction, and exporter failure isolation.
+| 方面 | 实际实现 |
+|---|---|
+| 存储 | `context_indexes` 保存分层索引；`memory_writes` 保存幂等写入凭据 |
+| Memory Port | 项目范围搜索、读取、目录浏览、事务写入与显式替代旧节点 |
+| 分层检索 | L0 目录筛选、L1 细化、叶节点检索与全项目补充召回 |
+| 混合排序 | PostgreSQL 全文排名与 pgvector 余弦检索通过 RRF 融合 |
+| 异步索引 | 导入后排队、事务外 embedding、租约续期、版本检查和重试 |
+| 上下文 | URI、层级、来源事件、片段与保守预算，保留完整引用和 UTF-8 边界 |
+| 前端 | 查询、L2 开关、原文打开、编译上下文、检索阶段与降级提示 |
+| 后续观测 | Langfuse 纳入第五周计划，本轮未接入导出 |
 
-## Verification
+## 验证结果
 
-On 2026-10-09, targeted Copilot/domain/rulebook and original memory/session/graph
-regressions passed locally: 98 passed, 29 skipped. After the final lease renewal
-change, the new memory tests passed again: 15 passed, 12 skipped. The PostgreSQL
-counterparts skip locally because Docker Desktop cannot start its inference
-socket; its runtime data was not reset. CI runs these cases against real pgvector.
+2026-10-09 的本地相关回归为 98 通过、29 跳过；最终租约调整后，新增记忆
+测试再次得到 15 通过、12 跳过。本机 PostgreSQL 用例因 Docker Desktop
+内部 socket 错误而跳过；没有重置数据。
 
-The React regression suite passed three cases, including cited retrieval/source
-opening and cancellation on project switch. TypeScript, production Vite build,
-Ruff, Compose configuration and the live API/worker/import/index/search smoke
-passed. The local smoke used an isolated SQLite database with demo vectors, so
-it is not evidence of PostgreSQL deployment. Browser verification confirmed the
-URI citation, source inspector, evidence IDs and compiled context.
+前端三个用例、TypeScript、生产构建、Ruff、Compose 配置、API/Worker 的导入、
+索引、引用检索 smoke 均通过。浏览器确认了引用、原文、来源事件与编译上下文。
+本地 smoke 用独立 SQLite 和演示向量，不能当作 PostgreSQL 部署证明。
 
-The project-scope test was mutation-checked: temporarily removing the candidate
-project filter returned a second project's document and failed the test. The
-filter was restored and the normal tests passed.
+[GitHub CI 37939206709](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/37939206709)
+验证了 `bbfb8eb` 的真实 PostgreSQL/pgvector 测试、前端检查和完整 Compose
+构建、启动、引用检索。两个任务均通过。
+隔离用例经过破坏验证：临时移除项目过滤后，返回另一项目文档，测试失败；
+恢复后正常用例通过。
 
-[GitHub CI run 37939206709](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/37939206709)
-passed both jobs for code commit `bbfb8eb`: `contracts-api-storage` ran the real
-PostgreSQL/pgvector migration, retrieval, scope, vector-only paraphrase and worker
-tests plus frontend checks; `compose-smoke` built and started the complete
-container stack and passed the import/index/cited-search smoke. The local Docker
-failure therefore limits local reproduction, while Linux CI verified deployment.
+## 当前限制
 
-## Limits
+- L0/L1 是抽取与目录聚合预览，尚无模型生成摘要。
+- 演示向量不理解语义。固定语义向量证明召回路径，不能代替真实模型质量基准。
+- L2 全文有关键词覆盖；每层向量最多输入标题与正文前 6,000 字符，长文档分块在第四周。
+- `estimated_tokens` 用 UTF-8 字节数作为保守预算单位，不是模型的精确 token 计数。
+- `as_of` 过滤当前节点有效期，不能重建被覆盖的历史版本。
+- `forget()` 明确拒绝执行，等待防复活 tombstone。
+- 当前完成 RAG 的检索和上下文组装，尚无新产品的生成回答、Chat/SSE 或 Langfuse trace。
 
-Extractive previews are not generated summaries. Hash demo vectors do not measure
-semantic quality. The scripted semantic test verifies vector-only routing but does
-not benchmark a real embedding model. Long documents have full lexical coverage
-and only their first 6,000 representation characters embedded until chunking arrives.
+当前命名为 `si://`，历史第三周提交的旧前缀通过独立迁移更新。
+本轮改名验证见[三周总览](copilot-progress.zh-CN.md)。
 
-Historical snapshots, durable forget, autonomous consolidation, original loop/chat
-integration, and persistent Langfuse export remain later milestones. Current active
-records are validity-filtered; `as_of` does not reconstruct overwritten history.
+## 三周梳理与 Si 改名验收
 
-See [memory retrieval](copilot-memory.md), [startup](copilot-backend.md), and
-[remaining milestones](copilot-roadmap.md).
+本轮增加 `0003_si_namespace`，更新领域校验、导入和检索 URI、React 展示与
+测试数据，并将六份开发文档改为中文，增加三周源码导读。首页使用 Si-agent，
+移除上游品牌图标；兼容包路径与历史作者署名保留。
+
+- 本地契约、后端、记忆与规则文档检查：60 通过、31 跳过。
+  30 项需要 PostgreSQL 连接，另 1 项 SQLite 用例需要 PostgreSQL 的 `SKIP LOCKED`。
+- React：3 通过；TypeScript、生产构建与 Ruff 通过。
+- 迁移用例验证节点 ID、原文、revision、证据与向量不变，迁移后再次导入仍更新原节点。
+- URI 冲突用例验证事务回滚并保留两份资料，避免覆盖。
+- 临时让 upgrade 不执行改名时，迁移回归失败；恢复后通过。
+- 本机既有预览库的 8 个节点完成迁移，未删除数据；API/Worker smoke 返回 `si://` 引用。
+- 浏览器确认新前缀、原文、引用片段、编译上下文与检索阶段。
+
+本机预览采用 SQLite 与 hash-demo，真实 PostgreSQL 结果需以本轮 GitHub CI 为准。

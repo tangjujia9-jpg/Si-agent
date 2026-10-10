@@ -1,4 +1,4 @@
-"""Stable values that cross Waku subsystem boundaries.
+"""Stable values that cross Si-agent subsystem boundaries.
 
 These objects are intentionally plain dataclasses.  They can be serialized in
 an event stream, stored in a database, or passed to an adapter without pulling
@@ -99,7 +99,7 @@ class ToolResult:
 
 @dataclass(frozen=True)
 class MemoryNode:
-    """A node in the inspectable ``waku://`` context namespace."""
+    """A node in the inspectable ``si://`` context namespace."""
 
     uri: str
     kind: str
@@ -119,8 +119,8 @@ class MemoryNode:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.uri.startswith("waku://"):
-            raise ValueError("memory node URI must start with waku://")
+        if not self.uri.startswith("si://"):
+            raise ValueError("memory node URI must start with si://")
         if not self.title.strip():
             raise ValueError("memory node title cannot be empty")
         if self.confidence is not None and not 0 <= self.confidence <= 1:
