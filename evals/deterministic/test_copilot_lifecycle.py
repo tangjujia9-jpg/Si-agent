@@ -24,6 +24,27 @@ from waku.workers.runner import claim, process, run_once
 backend = backend_fixture
 
 
+def test_local_file_loader_bounds_and_excludes_runtime_and_credentials(tmp_path):
+    from scripts.ingest_project import batches, documents
+
+    (tmp_path / "readme.md").write_text("# Project", encoding="utf-8")
+    (tmp_path / "app.py").write_text("print('hello')", encoding="utf-8")
+    (tmp_path / "credentials.json").write_text('{"secret":"do not import"}', encoding="utf-8")
+    (tmp_path / "binary.json").write_bytes(b"bad\x00content")
+    (tmp_path / ".waku").mkdir()
+    (tmp_path / ".waku" / "private.md").write_text("private", encoding="utf-8")
+    with pytest.raises(ValueError, match="invalid"):
+        list(documents(tmp_path))
+    (tmp_path / "binary.json").rename(tmp_path / "binary.bin")
+    docs = list(documents(tmp_path))
+    assert {d["path"] for d in docs} == {"readme.md", "app.py"}
+    assert not list(documents(tmp_path / "credentials.json"))
+    batch = list(batches([docs[0]] * 51))
+    assert list(map(len, batch)) == [50, 1]
+    batch = list(batches([{"path": "large.md", "content": "中" * 200000}] * 4))
+    assert list(map(len, batch)) == [3, 1]
+
+
 def drain(sessions):
     for _ in range(20):
         if not run_once(sessions, DemoEmbedder()):
@@ -135,9 +156,11 @@ def test_candidate_actions_idempotency_revision_conflict_and_retract(backend):
     assert any(c["reason"] == "revision_mismatch" for c in candidates())
     propose(client, pid, leaf, action="RETRACT", key="retract", expected_revision=2)
     propose(client, pid, leaf, action="SKIP", key="skip")
+    propose(client, pid, leaf, key="empty", content="")
     drain(sessions)
     assert client.get(f"/api/memory/{node_id}").json()["status"] == "retracted"
     assert any(c["reason"] == "explicit_skip" for c in candidates())
+    assert any(c["reason"] == "empty_content" for c in candidates())
     versions = client.get(f"/api/memory/{node_id}/versions").json()
     assert [v["revision"] for v in versions] == [3, 2, 1]
 

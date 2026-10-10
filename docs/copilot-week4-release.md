@@ -92,6 +92,13 @@ hash 只能识别精确内容重放，不能识别所有改写；evidence 可阻
 
 ## API 验收入口
 
+`scripts/ingest_project.py` 支持本地 Markdown、文本和代码文件/目录导入。
+先运行 `python scripts/ingest_project.py ./my-project --dry-run` 查看文件清单，
+再运行 `python scripts/ingest_project.py ./my-project --project PROJECT_ID` 提交。
+脚本跳过运行数据、依赖/构建目录、符号链接和常见凭证文件名，校验 UTF-8 与大小，
+按 50 文件/2 MB 分批，并使用内容 hash 生成幂等键。文件名过滤不代替人工检查资料。
+React 继续采用粘贴表单，尚无目录上传 UI。
+
 | 接口 | 用途 |
 |---|---|
 | `GET /api/memory/{id}/versions` | 历史快照，默认最多 100，可调到 500 |
@@ -106,9 +113,26 @@ hash 只能识别精确内容重放，不能识别所有改写；evidence 可阻
 
 ## 验证记录
 
-相关本地回归首轮为 71 通过、43 跳过，包括领域、API、Worker、检索和文档规则。
-PostgreSQL 项在未配置真实连接时跳过；最终数据和 CI 在发布前补充。
+相关本地回归首轮为 71 通过、43 跳过，补充文件导入后为 72 通过、43 跳过，
+包括领域、API、Worker、检索和文档规则。41 项因缺少真实 PostgreSQL 连接跳过，
+另 2 项 SQLite 用例分别要求 PostgreSQL 的 `SKIP LOCKED` 和真实 Alembic 迁移。
 新增用例使用隔离数据库与 HTTP fixture，不读取或清空 `.waku/`。
+
+运行命令：
+
+```powershell
+.venv/Scripts/python.exe -m pytest -q evals/deterministic/test_copilot_backend.py evals/deterministic/test_copilot_memory.py evals/deterministic/test_copilot_lifecycle.py evals/deterministic/test_project_contracts.py evals/deterministic/test_rulebook.py
+.venv/Scripts/python.exe -m ruff check waku evals scripts hosted infra/migrations/versions/0004_memory_lifecycle.py
+```
+
+[GitHub CI 38053033736](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/38053033736)
+验证了核心提交 `8ea4392`，两个任务均通过：真实 PostgreSQL/pgvector、迁移与
+生命周期测试、前端 3 个测试及构建、完整 Compose、引用区间、候选写入和历史读取。
+临时关闭 replay barrier 时，重导入回归失败；恢复后通过。
+本机 Docker daemon 不可用，没有删除或重置运行数据。
+最终文件导入及候选空内容拦截的 CI 结果在发布后继续记录。
+
+本轮未运行整个上游测试集或付费模型 judge，不将相关测试成功扩大为全仓库或语义质量验收。
 
 重点验证长文尾部向量单独召回、精确区间、旧版证据、五类候选动作、幂等、冲突、
 来源过期、跨项目证据、派生忘记、同路径/别名重放、计算期间删除与更新、模型 schema、

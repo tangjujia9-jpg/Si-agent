@@ -81,6 +81,8 @@ def apply_candidate(session, job):
 
     if candidate.action == "SKIP":
         return finish("skipped", "explicit_skip")
+    if candidate.action != "RETRACT" and not candidate.content.strip():
+        return finish("conflict", "empty_content")
     if blocked(session, job.project_id, candidate.uri, candidate.content, candidate.evidence_ids):
         return finish("skipped", "forget_tombstone")
     for evidence_id in candidate.evidence_ids:
@@ -204,7 +206,11 @@ def extract_decisions(session, node, proposals=None):
             project,
             {
                 "uri": root_uri(project.user_id, project.id)
-                + "/decisions/"
+                + "/"
+                + {"episodic": "decisions", "semantic": "memories", "procedural": "skills"}[
+                    proposal["kind"]
+                ]
+                + "/"
                 + quote(key, safe="")
                 + ".md",
                 "kind": proposal["kind"],
