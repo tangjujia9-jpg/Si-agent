@@ -60,4 +60,8 @@
 - 本机既有预览库的 8 个节点完成迁移，未删除数据；API/Worker smoke 返回 `si://` 引用。
 - 浏览器确认新前缀、原文、引用片段、编译上下文与检索阶段。
 
-本机预览采用 SQLite 与 hash-demo，真实 PostgreSQL 结果需以本轮 GitHub CI 为准。
+本机预览采用 SQLite 与 hash-demo，不代表真实语义质量或 PostgreSQL 性能。
+[本轮 GitHub CI 38021375535](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/38021375535)
+验证了代码提交 `5ef7179`：`contracts-api-storage` 和 `compose-smoke` 均通过，
+包括真实 PostgreSQL/pgvector、迁移数据保留与冲突回滚回归、前端检查和完整容器部署。
+本轮没有运行全仓库原有测试或付费模型 judge，不能将此结果扩大为全仓库或模型质量验收。

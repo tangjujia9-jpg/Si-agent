@@ -182,6 +182,11 @@ evidence 表；来源可追踪不等于来源正确，也不自动保证未来�
 Langfuse 继续安排在运行时 Harness 接线阶段，统一关联 run、模型、工具、检索和
 记忆写入；当前检索阶段数据不等于完整 Langfuse tracing。
 
+本轮代码提交 `5ef7179` 已通过
+[GitHub CI](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/38021375535) 的
+真实数据库与完整 Compose 检查。详细本地结果、跳过原因和验证限制见
+[中文验收报告](copilot-week3-release.md#三周梳理与-si-改名验收)。
+
 ## 下一阶段建议
 
 先完成第四周分块、候选记忆、历史版本与 tombstone，再接第五周运行时和 Langfuse。
