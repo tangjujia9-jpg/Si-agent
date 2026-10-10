@@ -33,7 +33,7 @@ deadline、审批、重试和工具次数限制需要 Harness 主动执行。
 `ToolResult` 尚未成为所有旧工具的统一返回格式。
 `ProviderPort` 已定义，多厂商运行适配与 handoff 仍在后续计划。
 
-第三周 `PostgresMemory` 已实现记忆读写与检索；忘记功能等待 tombstone。
+第三周 `PostgresMemory` 实现读写与检索，第四周通过 tombstone 实现逻辑忘记。
 因此不能把“接口存在”写成“所有能力已经上线”。
 
 ## FTS5 基线

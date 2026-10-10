@@ -92,14 +92,15 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 
 第二周建立 `projects`、`threads`、`messages`、`runs`、`context_nodes` 和 `jobs`。
 第三周增加 `context_indexes` 与 `memory_writes`。`messages`、`runs` 的存在不代表
-新聊天运行时已接通；`memory_versions`、`memory_evidence`、tombstone 和 outbox
-也尚未实现。
+新聊天运行时已接通；工具 outbox 仍待第五周实现。第四周已增加 `memory_versions`、`memory_evidence`、
+`memory_candidates` 和 `forget_tombstones`，版本和证据接口可以审计记忆变化。
 
 | 版本 | 内容 |
 |---|---|
 | `0001_copilot` | 初始关系表与 pgvector 扩展 |
 | `0002_memory_indexes` | L0/L1/L2 索引与幂等写入记录 |
 | `0003_si_namespace` | 将节点 URI、父目录 URI 与导入结果根 URI 改为 `si://` |
+| `0004_memory_lifecycle` | 分块索引、历史/证据/候选/tombstone，并为旧项目排队 rebuild |
 
 第三个迁移保留原文、节点 ID、来源事件、revision 与向量。URI 碰撞会让事务失败，
 不会覆盖已有节点。旧 URI 的客户端书签需要更新；原写入请求的 payload hash
@@ -118,4 +119,9 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 Judge 与付费 embedding 质量评测不在此离线流程内。
 
 中文验收结果见 [第二周](copilot-week2-release.md)、[第三周](copilot-week3-release.md)
-与[三周进展梳理](copilot-progress.zh-CN.md)。
+与[第四周](copilot-week4-release.md)。前三周背景见[源码导读](copilot-progress.zh-CN.md)。
+
+第四周新增的 versions/evidence/candidates/apply/forget 接口及 Worker 的
+enrich/consolidate/rebuild 流程见[第四周报告](copilot-week4-release.md)。升级后执行
+`alembic upgrade head` 并启动新 Worker，迁移会为既有项目排队分块重建；
+等待任务完成后再验收向量覆盖。不要用 `create_all` 替代已有库的结构迁移。

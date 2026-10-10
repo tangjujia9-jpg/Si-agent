@@ -14,10 +14,14 @@ from uuid import uuid4
 
 from sqlalchemy import and_, case, or_, select
 
+from waku.memory.candidates import apply_candidate
 from waku.memory.embeddings import configured_embedder
-from waku.memory.indexing import process_index
+from waku.memory.extraction import configured_extractor
+from waku.memory.indexing import enqueue_index, process_index, refresh_indexes
+from waku.memory.summaries import ExtractiveSummarizer, configured_summarizer
 from waku.storage.database import build_engine, session_factory
-from waku.storage.models import Job, now
+from waku.storage.models import Job, Project, now
+from waku.workers.enrichment import process_enrichment
 from waku.workers.ingestion import import_documents
 
 LOG = logging.getLogger(__name__)
@@ -34,7 +38,17 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
                     and_(Job.status == "running", Job.lease_until <= current),
                 )
             )
-            .order_by(case((Job.kind == "ingest", 0), else_=1), Job.available_at, Job.id)
+            .order_by(
+                case(
+                    (Job.kind == "ingest", 0),
+                    (Job.kind == "rebuild", 0),
+                    (Job.kind == "consolidate", 1),
+                    (Job.kind == "index", 2),
+                    else_=3,
+                ),
+                Job.available_at,
+                Job.id,
+            )
             .with_for_update(skip_locked=True)
             .limit(1)
         )
@@ -53,14 +67,23 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
         return job.id, job.lease_token
 
 
-def process(sessions, job_id: str, token: str, embedder=None) -> bool:
+def process(
+    sessions, job_id: str, token: str, embedder=None, summarizer=None, extractor=None
+) -> bool:
     try:
         with sessions() as session:
             job = session.get(Job, job_id)
             is_index = job is not None and job.kind == "index"
+            is_enrich = job is not None and job.kind == "enrich"
+            project_id = job.project_id if job else None
         if is_index:
             return process_index(sessions, job_id, token, embedder)
+        if is_enrich:
+            return process_enrichment(
+                sessions, job_id, token, summarizer or ExtractiveSummarizer(), extractor
+            )
         with sessions.begin() as session:
+            session.execute(select(Project).where(Project.id == project_id).with_for_update())
             job = session.scalar(
                 select(Job)
                 .where(Job.id == job_id, Job.status == "running", Job.lease_token == token)
@@ -68,9 +91,16 @@ def process(sessions, job_id: str, token: str, embedder=None) -> bool:
             )
             if job is None:
                 return False  # a newer worker owns the lease
-            if job.kind != "ingest":
+            if job.kind == "consolidate":
+                job.result = apply_candidate(session, job)
+            elif job.kind == "ingest":
+                job.result = import_documents(session, job)
+            elif job.kind == "rebuild":
+                refresh_indexes(session, job.project_id)
+                indexing = enqueue_index(session, job.project_id)
+                job.result = {"index_job_id": indexing.id}
+            else:
                 raise ValueError("unsupported job kind")
-            job.result = import_documents(session, job)
             job.status = "succeeded"
             job.lease_until = None
             job.lease_token = None
@@ -93,11 +123,11 @@ def process(sessions, job_id: str, token: str, embedder=None) -> bool:
         return False
 
 
-def run_once(sessions, embedder=None) -> bool:
+def run_once(sessions, embedder=None, summarizer=None, extractor=None) -> bool:
     claimed = claim(sessions)
     if claimed is None:
         return False
-    process(sessions, *claimed, embedder=embedder)
+    process(sessions, *claimed, embedder=embedder, summarizer=summarizer, extractor=extractor)
     return True
 
 
@@ -112,9 +142,13 @@ def main():
     engine = build_engine(url)
     sessions = session_factory(engine)
     embedder = configured_embedder()
+    summarizer = configured_summarizer()
+    extractor = configured_extractor()
     try:
         while True:
-            worked = run_once(sessions, embedder=embedder)
+            worked = run_once(
+                sessions, embedder=embedder, summarizer=summarizer, extractor=extractor
+            )
             if args.once:
                 break
             if not worked:

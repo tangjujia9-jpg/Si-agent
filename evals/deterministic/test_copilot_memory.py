@@ -316,8 +316,10 @@ def test_memory_port_write_idempotency_scope_and_supersession(backend):
                 MemoryNode(uri.replace(pid, "another"), "semantic", "bad", project_id=pid), "bad"
             )
         )
-    with pytest.raises(NotImplementedError, match="tombstones"):
-        memory.forget(uri)
+    assert memory.forget(uri)
+    assert memory.get(uri).status == "retracted"
+    with pytest.raises(ValueError, match="tombstone"):
+        memory.write(request)
 
 
 @pytest.mark.parametrize(

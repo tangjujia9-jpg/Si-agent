@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import PurePosixPath
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
@@ -152,6 +152,9 @@ class HitOutput(Output):
     valid_from: datetime | None
     valid_to: datetime | None
     conflict_group: str | None
+    revision: int | None = None
+    start_char: int | None = None
+    end_char: int | None = None
 
 
 class SearchOutput(Output):
@@ -162,3 +165,63 @@ class SearchOutput(Output):
     embedding_model: str | None
     warnings: list[str]
     stages: list[dict]
+
+
+class CandidateInput(Input):
+    uri: str = Field(min_length=1, max_length=1000)
+    kind: Literal["semantic", "episodic", "procedural"] = "semantic"
+    title: str = Field(min_length=1, max_length=240)
+    content: str = Field(default="", max_length=200000)
+    action: Literal["ADD", "UPDATE", "SUPERSEDES", "RETRACT", "SKIP"] = "ADD"
+    expected_revision: int | None = Field(default=None, ge=1)
+    supersedes_id: str | None = Field(default=None, max_length=36)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=100)
+    idempotency_key: str = Field(min_length=1, max_length=128)
+
+    @field_validator("content")
+    @classmethod
+    def no_nul(cls, value):
+        if "\x00" in value:
+            raise ValueError("content cannot contain NUL")
+        return value
+
+
+class CandidateOutput(Output):
+    id: str
+    uri: str
+    kind: str
+    title: str
+    content: str
+    action: str
+    status: str
+    reason: str | None
+    expected_revision: int | None
+    supersedes_id: str | None
+    evidence_ids: list[str]
+    node_id: str | None
+    job_id: str | None
+    created_at: datetime
+
+
+class ForgetInput(Input):
+    reason: str = Field(default="user_request", min_length=1, max_length=240)
+
+
+class VersionOutput(Output):
+    id: str
+    node_id: str
+    revision: int
+    snapshot: dict
+    created_at: datetime
+
+
+class EvidenceOutput(Output):
+    id: str
+    node_id: str
+    revision: int
+    start_char: int
+    end_char: int
+    quote: str
+    checksum: str
+    source_event_ids: list[str]
+    redacted: bool

@@ -7,7 +7,8 @@ from uuid import uuid4
 from sqlalchemy import func, literal_column, select
 
 from waku.memory.embeddings import Embedder, terms, validate_vectors
-from waku.storage.models import ContextIndex, ContextNode, Job, now
+from waku.memory.lifecycle import chunks, materialize_evidence
+from waku.storage.models import ContextIndex, ContextNode, Job, Project, now
 
 
 def refresh_indexes(session, project_id: str) -> None:
@@ -26,23 +27,35 @@ def refresh_indexes(session, project_id: str) -> None:
             directory.abstract, directory.overview = abstract, overview
             directory.revision += 1
     existing = {
-        (row.node_id, row.tier): row
+        (row.node_id, row.tier, row.position): row
         for row in session.scalars(
             select(ContextIndex).join(ContextNode).where(ContextNode.project_id == project_id)
         )
     }
+    wanted = set()
     for node in active:
-        bodies = {"l0": node.abstract, "l1": node.overview}
+        representations = [
+            ("l0", 0, 0, len(node.abstract), node.abstract),
+            ("l1", 0, 0, len(node.overview), node.overview),
+        ]
         if node.kind != "directory":
-            bodies["l2"] = node.content
-        for tier, body in bodies.items():
-            row = existing.get((node.id, tier))
+            materialize_evidence(session, node)
+            representations += [
+                ("l2", i, c.start, c.end, c.text) for i, c in enumerate(chunks(node.content))
+            ]
+        for tier, position, start, end, body in representations:
+            key = (node.id, tier, position)
+            wanted.add(key)
+            row = existing.get(key)
             if row is None:
-                row = ContextIndex(node_id=node.id, tier=tier, revision=node.revision, body=body)
+                row = ContextIndex(
+                    node_id=node.id, tier=tier, position=position, revision=node.revision, body=body
+                )
                 session.add(row)
             elif row.revision == node.revision and row.body == body:
                 continue
             row.revision, row.body = node.revision, body
+            row.start_char, row.end_char = start, end
             row.embedding, row.embedding_model = None, None
             tokens = " ".join(terms(f"{node.title} {body}"))
             row.search_vector = (
@@ -50,6 +63,9 @@ def refresh_indexes(session, project_id: str) -> None:
                 if session.bind.dialect.name == "postgresql"
                 else tokens
             )
+    for key, row in existing.items():
+        if key not in wanted:
+            session.delete(row)
     session.flush()
 
 
@@ -72,6 +88,7 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
         job = session.scalar(select(Job).where(Job.id == job_id, Job.lease_token == token))
         if job is None or job.status != "running":
             return False
+        project_id = job.project_id
         rows = session.execute(
             select(ContextIndex, ContextNode.title)
             .join(ContextNode)
@@ -106,6 +123,7 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
         batch = snapshot[offset : offset + 16]
         vectors.extend(validate_vectors(embedder.embed([r[3] for r in batch]), len(batch)))
     with sessions.begin() as session:
+        session.execute(select(Project).where(Project.id == project_id).with_for_update())
         job = session.scalar(
             select(Job)
             .where(
@@ -118,11 +136,21 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
         if job is None:
             return False
         applied = 0
+        # Project writes/forget use the same lock, so a snapshot cannot be
+        # committed between a deletion and its lexical-index refresh.
         for (row_id, revision, body, _), vector in zip(snapshot, vectors, strict=True):
             row = session.scalar(
                 select(ContextIndex).where(ContextIndex.id == row_id).with_for_update()
             )
-            if row and row.revision == revision and row.body == body:
+            node = session.get(ContextNode, row.node_id) if row else None
+            if (
+                row
+                and node
+                and node.status == "active"
+                and node.revision == revision
+                and row.revision == revision
+                and row.body == body
+            ):
                 row.embedding, row.embedding_model = vector, embedder.model_id
                 applied += 1
         job.result = {

@@ -6,11 +6,13 @@ and queue vector indexing. Generated summaries and chunks follow in week 4.
 
 from hashlib import sha256
 from urllib.parse import quote
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from waku.memory.indexing import enqueue_index, refresh_indexes
+from waku.memory.lifecycle import blocked, record_version
 from waku.storage.models import ContextNode, Job, Project
 
 
@@ -41,7 +43,8 @@ def import_documents(session: Session, job: Job) -> dict:
     for category in ("resources", "decisions", "tasks", "memories", "sessions"):
         directory(f"{root}/{category}", root, category)
 
-    imported = unchanged = 0
+    imported = unchanged = skipped = 0
+    changed_nodes = []
     for doc in job.payload["documents"]:
         parts = doc["path"].split("/")
         parent = f"{root}/resources"
@@ -51,6 +54,9 @@ def import_documents(session: Session, job: Job) -> dict:
             parent = uri
         uri = f"{parent}/{quote(parts[-1], safe='')}"
         content = doc["content"]
+        if blocked(session, project.id, uri, content):
+            skipped += 1
+            continue
         checksum = sha256(content.encode()).hexdigest()
         node = nodes.get(uri)
         if node and node.kind == "directory":
@@ -65,6 +71,7 @@ def import_documents(session: Session, job: Job) -> dict:
             session.add(node)
             nodes[uri] = node
         else:
+            record_version(session, node)
             node.revision += 1
         node.content = content
         node.abstract = next(
@@ -78,12 +85,24 @@ def import_documents(session: Session, job: Job) -> dict:
         node.embedding = None
         node.search_vector = None
         imported += 1
+        changed_nodes.append(node)
     session.flush()
     refresh_indexes(session, project.id)
     indexing = enqueue_index(session, project.id)
+    enrichment = Job(
+        project_id=project.id,
+        kind="enrich",
+        idempotency_key="enrich:" + uuid4().hex,
+        payload_hash=job.payload_hash,
+        payload={"node_ids": [n.id for n in changed_nodes]},
+    )
+    session.add(enrichment)
+    session.flush()
     return {
         "imported": imported,
         "unchanged": unchanged,
+        "forgotten_skipped": skipped,
         "root_uri": root,
         "index_job_id": indexing.id,
+        "enrich_job_id": enrichment.id,
     }

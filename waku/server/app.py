@@ -13,11 +13,16 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from waku.memory.candidates import queue_candidate, submit_candidate
 from waku.memory.embeddings import configured_embedder
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.port import MemoryQuery
 from waku.memory.postgres import PostgresMemory
 from waku.server.schemas import (
+    CandidateInput,
+    CandidateOutput,
+    EvidenceOutput,
+    ForgetInput,
     IngestInput,
     JobOutput,
     NodeOutput,
@@ -28,9 +33,19 @@ from waku.server.schemas import (
     SearchOutput,
     ThreadInput,
     ThreadOutput,
+    VersionOutput,
 )
 from waku.storage.database import build_engine, session_factory
-from waku.storage.models import ContextIndex, ContextNode, Job, Project, Thread
+from waku.storage.models import (
+    ContextIndex,
+    ContextNode,
+    Job,
+    MemoryCandidate,
+    MemoryEvidence,
+    MemoryVersion,
+    Project,
+    Thread,
+)
 
 USER_ID = "default"
 LOG = logging.getLogger(__name__)
@@ -82,6 +97,15 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         LOG.error("Storage operation failed (%s)", type(exc).__name__)
         return JSONResponse(status_code=503, content={"detail": "Storage unavailable"})
 
+    @app.exception_handler(ValueError)
+    async def invalid_memory(_request: Request, _exc: ValueError):
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Memory operation conflicts with scope, evidence, idempotency or lifecycle rules"
+            },
+        )
+
     @app.get("/health")
     def health():
         return {"status": "ok", "service": "si-agent-api"}
@@ -91,6 +115,7 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         session.execute(text("SELECT 1"))
         session.execute(select(Project.id).limit(1))
         session.execute(select(ContextIndex.id).limit(1))
+        session.execute(select(MemoryVersion.id).limit(1))
         return {"status": "ready"}
 
     @app.post("/api/projects", response_model=ProjectOutput, status_code=201)
@@ -211,5 +236,80 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         session.add(thread)
         session.flush()
         return thread
+
+    def node_or_404(session, node_id):
+        node = session.get(ContextNode, node_id)
+        if node is None:
+            raise HTTPException(404, "Context node not found")
+        project_or_404(session, node.project_id)
+        return node
+
+    @app.get("/api/memory/{node_id}/versions", response_model=list[VersionOutput])
+    def versions(
+        node_id: str, session: Session = dependency, limit: int = Query(100, ge=1, le=500)
+    ):
+        node_or_404(session, node_id)
+        return session.scalars(
+            select(MemoryVersion)
+            .where(MemoryVersion.node_id == node_id)
+            .order_by(MemoryVersion.revision.desc())
+            .limit(limit)
+        ).all()
+
+    @app.get("/api/memory/{node_id}/evidence", response_model=list[EvidenceOutput])
+    def evidence(
+        node_id: str, session: Session = dependency, revision: int | None = Query(None, ge=1)
+    ):
+        node = node_or_404(session, node_id)
+        return session.scalars(
+            select(MemoryEvidence)
+            .where(
+                MemoryEvidence.node_id == node_id,
+                MemoryEvidence.revision == (revision or node.revision),
+            )
+            .order_by(MemoryEvidence.start_char)
+        ).all()
+
+    @app.post("/api/memory/{node_id}/forget")
+    def forget(node_id: str, payload: ForgetInput, session: Session = dependency):
+        node = node_or_404(session, node_id)
+        return {
+            "forgotten": memory_store.forget(node.uri, user_id=USER_ID, reason=payload.reason),
+            "node_id": node_id,
+        }
+
+    @app.get("/api/projects/{project_id}/memory/candidates", response_model=list[CandidateOutput])
+    def candidates(
+        project_id: str, session: Session = dependency, limit: int = Query(100, ge=1, le=500)
+    ):
+        project_or_404(session, project_id)
+        return session.scalars(
+            select(MemoryCandidate)
+            .where(MemoryCandidate.project_id == project_id)
+            .order_by(MemoryCandidate.created_at.desc())
+            .limit(limit)
+        ).all()
+
+    @app.post(
+        "/api/projects/{project_id}/memory/candidates",
+        response_model=CandidateOutput,
+        status_code=202,
+    )
+    def propose(project_id: str, payload: CandidateInput, session: Session = dependency):
+        return submit_candidate(session, project_or_404(session, project_id), payload.model_dump())
+
+    @app.post(
+        "/api/memory/candidates/{candidate_id}/apply",
+        response_model=CandidateOutput,
+        status_code=202,
+    )
+    def approve_candidate(candidate_id: str, session: Session = dependency):
+        candidate = session.get(MemoryCandidate, candidate_id)
+        if candidate is None:
+            raise HTTPException(404, "Candidate not found")
+        project_or_404(session, candidate.project_id)
+        session.execute(select(Project).where(Project.id == candidate.project_id).with_for_update())
+        queue_candidate(session, candidate)
+        return candidate
 
     return app

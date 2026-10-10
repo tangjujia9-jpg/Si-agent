@@ -12,6 +12,8 @@ core below retains its attribution and local assistant interface.
 [第二周验收](docs/copilot-week2-release.md)、[第三周验收](docs/copilot-week3-release.md)。
 产品命名与虚拟目录采用 Si-agent / `si://`；Python 包和旧命令暂留兼容。
 
+第四周新增分块证据、历史版本、候选处理与忘记屏障，见[中文验收报告](docs/copilot-week4-release.md)。
+
 ## Upstream Waku learning material and compatibility interface
 
 **Your own AI assistant. On your laptop. In code you can read in an afternoon.**

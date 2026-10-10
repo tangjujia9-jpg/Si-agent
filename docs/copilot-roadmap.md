@@ -1,12 +1,12 @@
 # Si-agent 后续开发与验收计划
 
-前三周已完成契约、持久化导入与带引用的检索。完整产品需要继续接入运行时，
+前四周已实现契约、持久化导入、带引用检索与记忆生命周期。完整产品需要继续接入运行时，
 补齐历史记忆、聊天、观测和质量评测。今后的验收报告使用中文，区分已实现、
 已验证与待实现能力。
 
 | 里程碑 | 开发内容 | 验收结果 |
 |---|---|---|
-| 第四周 | 分块、生成摘要、candidate/evidence/version、冲突、tombstone | 可查决策历史；忘记后旧内容不复活 |
+| 第四周 | 已实现分块、可选模型摘要/抽取、candidate/evidence/version、冲突、tombstone | 验证边界见[第四周报告](copilot-week4-release.md) |
 | 第五周 | 新记忆接入 Loop、Provider、工具校验、operation/outbox、LangGraph、Langfuse | 项目任务有完整调用链、预算控制与可恢复状态 |
 | 第六周 | Chat/SSE、记忆检查台、Run Trace、模型配置 | 回答可打开来源与运行轨迹 |
 | 第七周 | FTS5/hybrid 与外部适配器对比、检索与 Agent 指标、Eval Lab | 可重复评测质量、泄漏、过期、成本和延迟 |

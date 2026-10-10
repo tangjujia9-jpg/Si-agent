@@ -145,7 +145,7 @@ class ContextIndex(Identity, Base):
 
     __tablename__ = "context_indexes"
     __table_args__ = (
-        UniqueConstraint("node_id", "tier", name="uq_index_node_tier"),
+        UniqueConstraint("node_id", "tier", "position", name="uq_index_node_tier_position"),
         CheckConstraint("tier IN ('l0', 'l1', 'l2')", name="index_tier"),
         Index("ix_context_indexes_search", "search_vector", postgresql_using="gin"),
     )
@@ -153,6 +153,9 @@ class ContextIndex(Identity, Base):
     tier: Mapped[str] = mapped_column(String(2))
     revision: Mapped[int] = mapped_column(Integer)
     body: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    start_char: Mapped[int] = mapped_column(Integer, default=0)
+    end_char: Mapped[int] = mapped_column(Integer, default=0)
     embedding_model: Mapped[str | None] = mapped_column(String(240))
     embedding: Mapped[list | None] = mapped_column(
         Vector(1536).with_variant(JSON(none_as_null=True), "sqlite")
@@ -170,3 +173,66 @@ class MemoryWriteRecord(Identity, Base):
     idempotency_key: Mapped[str] = mapped_column(String(128))
     payload_hash: Mapped[str] = mapped_column(String(64))
     created: Mapped[bool]
+
+
+class MemoryVersion(Identity, Base):
+    __tablename__ = "memory_versions"
+    __table_args__ = (UniqueConstraint("node_id", "revision", name="uq_version_node_revision"),)
+    node_id: Mapped[str] = mapped_column(ForeignKey("context_nodes.id"), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    snapshot: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+
+
+class MemoryEvidence(Identity, Base):
+    """Exact original-document character spans, pinned to a source revision."""
+
+    __tablename__ = "memory_evidence"
+    __table_args__ = (
+        UniqueConstraint("node_id", "revision", "start_char", "end_char", name="uq_evidence_span"),
+        CheckConstraint("start_char >= 0 AND end_char >= start_char", name="evidence_range"),
+    )
+    node_id: Mapped[str] = mapped_column(ForeignKey("context_nodes.id"), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    start_char: Mapped[int] = mapped_column(Integer)
+    end_char: Mapped[int] = mapped_column(Integer)
+    quote: Mapped[str] = mapped_column(Text)
+    checksum: Mapped[str] = mapped_column(String(64))
+    source_event_ids: Mapped[list] = mapped_column(JSON, default=list)
+    redacted: Mapped[bool] = mapped_column(default=False)
+
+
+class ForgetTombstone(Identity, Base):
+    __tablename__ = "forget_tombstones"
+    __table_args__ = (UniqueConstraint("project_id", "uri", name="uq_tombstone_uri"),)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    uri: Mapped[str] = mapped_column(Text)
+    content_hashes: Mapped[list] = mapped_column(JSON, default=list)
+    reason: Mapped[str] = mapped_column(String(240))
+
+
+class MemoryCandidate(Identity, Base):
+    __tablename__ = "memory_candidates"
+    __table_args__ = (
+        UniqueConstraint("project_id", "idempotency_key", name="uq_candidate_key"),
+        CheckConstraint(
+            "action IN ('ADD','UPDATE','SUPERSEDES','RETRACT','SKIP')", name="candidate_action"
+        ),
+        CheckConstraint(
+            "status IN ('pending','applied','conflict','skipped')", name="candidate_status"
+        ),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    uri: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(32))
+    title: Mapped[str] = mapped_column(String(240))
+    content: Mapped[str] = mapped_column(Text)
+    action: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    expected_revision: Mapped[int | None] = mapped_column(Integer)
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("context_nodes.id"))
+    evidence_ids: Mapped[list] = mapped_column(JSON, default=list)
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    reason: Mapped[str | None] = mapped_column(String(240))
+    node_id: Mapped[str | None] = mapped_column(ForeignKey("context_nodes.id"))
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"))

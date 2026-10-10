@@ -34,6 +34,7 @@ into four groups.
 | [copilot-week2-release.md](copilot-week2-release.md) | 第二周中文验收报告：变化、验证与限制 |
 | [copilot-memory.md](copilot-memory.md) | 中文记忆设计：分层表示、embedding、混合检索与引用 |
 | [copilot-week3-release.md](copilot-week3-release.md) | 第三周中文验收报告：已实现链路与验收边界 |
+| [copilot-week4-release.md](copilot-week4-release.md) | 第四周中文验收：分块、候选、证据、历史版本、冲突与忘记 |
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
 | [context-copilot-design.md](context-copilot-design.md) | 第一周中文设计记录：领域契约与 FTS5 基线 |
 | [WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md](WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md) | Chinese source walkthrough and architecture learning notes |

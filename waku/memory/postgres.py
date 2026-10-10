@@ -18,8 +18,15 @@ from waku.domain.contracts import MemoryHit, MemoryNode
 from waku.memory.context import CompiledContext, compile_context
 from waku.memory.embeddings import Embedder, terms, validate_vectors
 from waku.memory.indexing import enqueue_index, refresh_indexes
+from waku.memory.lifecycle import blocked, forget_node, record_version
 from waku.memory.port import MemoryQuery, MemoryWrite, MemoryWriteReceipt
-from waku.storage.models import ContextIndex, ContextNode, MemoryWriteRecord, Project
+from waku.storage.models import (
+    ContextIndex,
+    ContextNode,
+    MemoryEvidence,
+    MemoryWriteRecord,
+    Project,
+)
 
 
 def root_uri(user_id: str, project_id: str) -> str:
@@ -112,6 +119,10 @@ class PostgresMemory:
             return [domain_node(n, user_id) for n in nodes]
 
     def write(self, request: MemoryWrite) -> MemoryWriteReceipt:
+        with self.sessions.begin() as session:
+            return self.write_in_session(request, session)
+
+    def write_in_session(self, request: MemoryWrite, session) -> MemoryWriteReceipt:
         node = request.node
         if not node.project_id or not request.idempotency_key or len(request.idempotency_key) > 128:
             raise ValueError("project and bounded idempotency key are required")
@@ -131,124 +142,146 @@ class PostgresMemory:
         digest = hashlib.sha256(
             json.dumps(asdict(request), sort_keys=True, default=str).encode()
         ).hexdigest()
-        with self.sessions.begin() as session:
-            project = session.scalar(
-                select(Project)
-                .where(
-                    Project.id == node.project_id,
-                    Project.user_id == node.user_id,
-                )
-                .with_for_update()
+        project = session.scalar(
+            select(Project)
+            .where(
+                Project.id == node.project_id,
+                Project.user_id == node.user_id,
             )
-            if project is None:
-                raise ValueError("project not found in user scope")
-            previous = session.scalar(
-                select(MemoryWriteRecord).where(
-                    MemoryWriteRecord.project_id == project.id,
-                    MemoryWriteRecord.idempotency_key == request.idempotency_key,
-                )
+            .with_for_update()
+        )
+        if project is None:
+            raise ValueError("project not found in user scope")
+        references = (*node.source_event_ids, *request.evidence_ids)
+        if blocked(session, project.id, node.uri, node.content, references):
+            raise ValueError("memory write blocked by forget tombstone")
+        for evidence_id in references:
+            evidence = session.get(MemoryEvidence, evidence_id)
+            source = session.get(ContextNode, evidence.node_id) if evidence else None
+            if source and source.project_id != project.id:
+                raise ValueError("evidence must belong to the target project")
+        previous = session.scalar(
+            select(MemoryWriteRecord).where(
+                MemoryWriteRecord.project_id == project.id,
+                MemoryWriteRecord.idempotency_key == request.idempotency_key,
             )
-            if previous:
-                if previous.payload_hash != digest:
-                    raise ValueError("idempotency key conflicts with a different memory write")
-                stored = session.get(ContextNode, previous.node_id)
-                return MemoryWriteReceipt(stored.id, stored.uri, previous.created)
-            # Materialize missing parents without granting cross-project references.
-            root = root_uri(node.user_id, project.id)
-            ancestors = [root]
-            for part in parent[len(root) + 1 :].split("/") if parent != root else []:
-                ancestors.append(ancestors[-1] + "/" + part)
-            for i, uri in enumerate(ancestors):
-                existing = session.scalar(
-                    select(ContextNode).where(
-                        ContextNode.project_id == project.id, ContextNode.uri == uri
-                    )
-                )
-                if existing and existing.kind != "directory":
-                    raise ValueError("directory collides with a memory")
-                if not existing:
-                    session.add(
-                        ContextNode(
-                            project_id=project.id,
-                            uri=uri,
-                            kind="directory",
-                            title=project.name if i == 0 else unquote(uri.rsplit("/", 1)[1]),
-                            parent_uri=ancestors[i - 1] if i else None,
-                        )
-                    )
-                    session.flush()
-            stored = session.scalar(
+        )
+        if previous:
+            if previous.payload_hash != digest:
+                raise ValueError("idempotency key conflicts with a different memory write")
+            stored = session.get(ContextNode, previous.node_id)
+            return MemoryWriteReceipt(stored.id, stored.uri, previous.created)
+        # Materialize missing parents without granting cross-project references.
+        root = root_uri(node.user_id, project.id)
+        ancestors = [root]
+        for part in parent[len(root) + 1 :].split("/") if parent != root else []:
+            ancestors.append(ancestors[-1] + "/" + part)
+        for i, uri in enumerate(ancestors):
+            existing = session.scalar(
                 select(ContextNode).where(
-                    ContextNode.project_id == project.id, ContextNode.uri == node.uri
+                    ContextNode.project_id == project.id, ContextNode.uri == uri
                 )
             )
-            created = stored is None
-            if stored and stored.kind == "directory":
-                raise ValueError("memory collides with a directory")
-            if stored is None:
-                stored = ContextNode(
-                    project_id=project.id,
-                    uri=node.uri,
-                    parent_uri=parent,
-                    title=node.title,
-                    kind=node.kind,
+            if existing and existing.kind != "directory":
+                raise ValueError("directory collides with a memory")
+            if not existing:
+                session.add(
+                    ContextNode(
+                        project_id=project.id,
+                        uri=uri,
+                        kind="directory",
+                        title=project.name if i == 0 else unquote(uri.rsplit("/", 1)[1]),
+                        parent_uri=ancestors[i - 1] if i else None,
+                    )
                 )
-                session.add(stored)
-            else:
-                stored.revision += 1
-            if node.supersedes_id:
-                old = session.get(ContextNode, node.supersedes_id)
-                if old is None or old.project_id != project.id or old.id == stored.id:
-                    raise ValueError("superseded node must be a different node in the same project")
-                old.status = "superseded"
-            for key in (
-                "kind",
-                "title",
-                "abstract",
-                "overview",
-                "content",
-                "confidence",
-                "valid_from",
-                "valid_to",
-                "status",
-                "supersedes_id",
-            ):
-                setattr(stored, key, getattr(node, key))
-            stored.source_event_ids = list(
-                dict.fromkeys((*node.source_event_ids, *request.evidence_ids))
+                session.flush()
+        stored = session.scalar(
+            select(ContextNode).where(
+                ContextNode.project_id == project.id, ContextNode.uri == node.uri
             )
-            stored.abstract = (
-                stored.abstract
-                or next(
-                    (
-                        line.strip().lstrip("# ")
-                        for line in node.content.splitlines()
-                        if line.strip()
-                    ),
-                    "",
-                )[:240]
+        )
+        created = stored is None
+        if stored and stored.kind == "directory":
+            raise ValueError("memory collides with a directory")
+        if stored is None:
+            stored = ContextNode(
+                project_id=project.id,
+                uri=node.uri,
+                parent_uri=parent,
+                title=node.title,
+                kind=node.kind,
             )
-            stored.overview = stored.overview or node.content[:1200]
-            stored.checksum = hashlib.sha256(node.content.encode()).hexdigest()
-            stored.embedding, stored.search_vector = None, None
-            session.flush()
-            session.add(
-                MemoryWriteRecord(
-                    project_id=project.id,
-                    node_id=stored.id,
-                    idempotency_key=request.idempotency_key,
-                    payload_hash=digest,
-                    created=created,
-                )
+            session.add(stored)
+        else:
+            record_version(session, stored)
+            stored.revision += 1
+        if node.supersedes_id:
+            old = session.get(ContextNode, node.supersedes_id)
+            if old is None or old.project_id != project.id or old.id == stored.id:
+                raise ValueError("superseded node must be a different node in the same project")
+            if blocked(session, project.id, old.uri, old.content):
+                raise ValueError("cannot supersede forgotten memory")
+            record_version(session, old)
+            old.status = "superseded"
+            old.revision += 1
+            record_version(session, old)
+        for key in (
+            "kind",
+            "title",
+            "abstract",
+            "overview",
+            "content",
+            "confidence",
+            "valid_from",
+            "valid_to",
+            "status",
+            "supersedes_id",
+        ):
+            setattr(stored, key, getattr(node, key))
+        stored.source_event_ids = list(
+            dict.fromkeys((*node.source_event_ids, *request.evidence_ids))
+        )
+        stored.abstract = (
+            stored.abstract
+            or next(
+                (line.strip().lstrip("# ") for line in node.content.splitlines() if line.strip()),
+                "",
+            )[:240]
+        )
+        stored.overview = stored.overview or node.content[:1200]
+        stored.checksum = hashlib.sha256(node.content.encode()).hexdigest()
+        stored.embedding, stored.search_vector = None, None
+        session.flush()
+        session.add(
+            MemoryWriteRecord(
+                project_id=project.id,
+                node_id=stored.id,
+                idempotency_key=request.idempotency_key,
+                payload_hash=digest,
+                created=created,
             )
-            refresh_indexes(session, project.id)
-            enqueue_index(session, project.id)
-            return MemoryWriteReceipt(stored.id, stored.uri, created)
+        )
+        refresh_indexes(session, project.id)
+        enqueue_index(session, project.id)
+        return MemoryWriteReceipt(stored.id, stored.uri, created)
 
     def forget(self, uri: str, *, user_id: str = "default", reason: str = "user_request") -> bool:
-        # A status flag alone would allow ingestion/consolidation to resurrect
-        # forgotten content. Week 4 owns tombstones and the public forget API.
-        raise NotImplementedError("forget requires durable tombstones (week 4)")
+        with self.sessions.begin() as session:
+            node = session.scalar(
+                select(ContextNode)
+                .join(Project)
+                .where(ContextNode.uri == uri, Project.user_id == user_id)
+            )
+            if node is None:
+                return False
+            session.execute(select(Project).where(Project.id == node.project_id).with_for_update())
+            session.refresh(node)
+            if node.status == "retracted" and blocked(session, node.project_id, uri, ""):
+                return True
+            forget_node(session, node, reason)
+            refresh_indexes(session, node.project_id)
+            enqueue_index(session, node.project_id)
+            return True
 
     def search(self, query: MemoryQuery) -> list[MemoryHit]:
         return list(self.retrieve(query).context.hits)
@@ -423,18 +456,40 @@ class PostgresMemory:
             for score, row, node in sorted(best.values(), key=lambda x: (-x[0], x[2].uri))[
                 : query.top_k
             ]:
+                evidence = (
+                    list(
+                        session.scalars(
+                            select(MemoryEvidence).where(
+                                MemoryEvidence.node_id == node.id,
+                                MemoryEvidence.revision == node.revision,
+                                MemoryEvidence.redacted.is_(False),
+                                MemoryEvidence.start_char == row.start_char,
+                                MemoryEvidence.end_char == row.end_char,
+                            )
+                        )
+                    )
+                    if row.tier == "l2"
+                    else []
+                )
+                excerpt = snippet(row.body, query.text)
+                offset = row.body.find(excerpt)
                 hits.append(
                     MemoryHit(
                         id=node.id,
                         uri=node.uri,
                         tier=row.tier,
-                        snippet=snippet(row.body, query.text),
+                        snippet=excerpt,
                         score=round(score, 8),
                         source=node.kind,
                         project_scope=project.id,
-                        evidence_ids=tuple(node.source_event_ids),
+                        evidence_ids=tuple(e.id for e in evidence) or tuple(node.source_event_ids),
                         valid_from=node.valid_from,
                         valid_to=node.valid_to,
+                        revision=node.revision,
+                        start_char=row.start_char + offset if row.tier == "l2" else None,
+                        end_char=row.start_char + offset + len(excerpt)
+                        if row.tier == "l2"
+                        else None,
                     )
                 )
         context = compile_context(hits, query.max_tokens)

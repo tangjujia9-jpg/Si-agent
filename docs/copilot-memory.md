@@ -8,8 +8,8 @@ Memory v1 将用户导入的项目资料保存为 `si://` 节点，建立 L0/L1/
 
 `waku/memory/port.py` 使用标准库 `Protocol` 描述 `search`、`write`、`get`、
 `list_children` 和 `forget`。业务方依赖这些能力，具体存储由适配器实现。
-`waku/memory/postgres.py` 的 `PostgresMemory` 实现前四项，`forget` 明确抛出
-未实现错误，等待第四周 tombstone，避免用状态标记造成已删除记忆复活。
+`waku/memory/postgres.py` 的 `PostgresMemory` 已实现五项；第四周 forget
+写入 tombstone，并脱敏原文、历史、证据和已知派生记忆。
 
 `write(MemoryWrite)` 校验用户、项目与规范 URI，补齐父目录，在一个事务中
 保存正文、来源事件、revision、幂等凭据，刷新全文索引并排队向量任务。
@@ -32,12 +32,12 @@ URI 是数据库中的逻辑地址，不代表宿主机的实际文件。导入�
 |---|---|---|
 | L0 abstract | 首个非空行，最多 240 字符 | 聚合子节点 abstract，最多 600 字符 |
 | L1 overview | 正文前 1200 字符 | 聚合子节点 overview，最多 6000 字符 |
-| L2 detail | 完整正文 | 不为目录创建 L2 |
+| L2 detail | 2400 字符以内的原文分块，200 字符重叠 | 不为目录创建 L2 |
 
-这些表示由确定性规则抽取，尚未使用 LLM 概括。`context_nodes` 保存原文与元数据，
-`context_indexes` 保存每个层级的 body、全文索引、embedding、embedding_model 和 revision。
-索引刷新不会把 L2 原文截成 1200 字符；但当前 embedding 输入截到 6000 字符，
-长文后段的语义覆盖需要第四周分块改善。
+初始 L0/L1 由规则抽取，后台 enrich 可以用分块抽取或显式配置的模型生成摘要。
+`context_nodes` 保存完整原文，`context_indexes` 保存各层级/分块的 body、position、
+原文区间、全文索引、embedding、embedding_model 与 revision。
+L2 每块独立计算向量，改善第三周长文尾部语义覆盖；L1 输入仍有界。
 
 ## 写入与异步 embedding
 
@@ -101,7 +101,8 @@ SQLite 适配使用 Python 的关键词计数与余弦计算，只验证流程�
 evidence IDs。关键词片段从匹配附近截取；纯向量命中可能取原文开头。
 React 可以根据节点 ID 打开完整原文。证据标识说明资料从哪次导入而来，
 不证明资料正确，也不保证片段一定完整支持结论。
-独立 evidence 表、精确字符偏移、历史内容版本和自动事实抽取待后续实现。
+第四周已提供独立 evidence、精确 L2 字符区间与历史版本。自动抽取为待确认候选，
+规则默认识别明确决策标记，也可选择模型抽取；不会直接将模型建议写成事实。
 
 示例上下文：
 
@@ -131,5 +132,5 @@ facts/episodes 加入 `Relevant memory` 后交给旧 Loop 生成回答，属于�
 语义 fixture 验证程序分支，hash-demo 验证可复现链路，都不能证明真实 embedding 的检索质量。
 真实 PostgreSQL/pgvector 和 Compose 由 Copilot CI 验证。
 
-第四周推进分块、候选事实、版本、冲突和 tombstone；第五周接 Runtime 与 Langfuse。
-详见[开发路线图](copilot-roadmap.md)与[第三周验收报告](copilot-week3-release.md)。
+第四周实现分块、候选、版本、显式冲突和 tombstone，详见[第四周报告](copilot-week4-release.md)。
+第五周接 Runtime 与 Langfuse，详见[开发路线图](copilot-roadmap.md)。

@@ -6,7 +6,7 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 ---
 
@@ -15,9 +15,10 @@ known-broken is below, and half of it already has a fix in flight.
 Si-agent's optional Copilot API, PostgreSQL schema, import worker, and React
 context console run through project/import/index/search/inspection. Scoped tier
 retrieval combines full-text ranking and pgvector, with configured embeddings
-or explicitly labeled demo vectors. Original loop integration, historical versions
-and durable forget remain upcoming milestones. Langfuse is scheduled with the
-runtime Harness. See [copilot-week3-release.md](copilot-week3-release.md) for verification limits
+or explicitly labeled demo vectors. Chunk evidence, historical revisions, candidate
+actions/conflicts, optional model enrichment and durable logical forget are implemented.
+Original loop integration and Langfuse are scheduled with the runtime Harness.
+See [copilot-week4-release.md](copilot-week4-release.md) for verification limits
 and [copilot-backend.md](copilot-backend.md) for startup commands.
 
 The four pillars run: the loop, memory (semantic + episodic + procedural with

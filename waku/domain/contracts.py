@@ -142,6 +142,9 @@ class MemoryHit:
     valid_from: datetime | None = None
     valid_to: datetime | None = None
     conflict_group: str | None = None
+    revision: int | None = None
+    start_char: int | None = None
+    end_char: int | None = None
 
     def citation(self) -> str:
         return f"[{self.uri}]"

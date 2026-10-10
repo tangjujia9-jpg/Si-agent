@@ -27,7 +27,10 @@ def compile_context(hits: list[MemoryHit], max_tokens: int) -> CompiledContext:
     blocks, kept = [], []
     truncated = False
     for hit in hits:
-        header = f"{hit.citation()} ({hit.tier}, evidence: {', '.join(hit.evidence_ids)})\n"
+        revision = f", revision: {hit.revision}" if hit.revision is not None else ""
+        header = (
+            f"{hit.citation()} ({hit.tier}{revision}, evidence: {', '.join(hit.evidence_ids)})\n"
+        )
         prefix = "\n\n" if blocks else ""
         remaining = max_tokens - estimated_tokens("\n\n".join(blocks))
         available = remaining - estimated_tokens(prefix + header)
@@ -40,7 +43,15 @@ def compile_context(hits: list[MemoryHit], max_tokens: int) -> CompiledContext:
             truncated = True
             continue
         truncated |= len(raw) > available
-        kept.append(replace(hit, snippet=snippet))
+        kept.append(
+            replace(
+                hit,
+                snippet=snippet,
+                end_char=hit.start_char + len(snippet)
+                if hit.start_char is not None
+                else hit.end_char,
+            )
+        )
         blocks.append(header + snippet)
     text = "\n\n".join(blocks)
     return CompiledContext(tuple(kept), text, estimated_tokens(text), truncated)
