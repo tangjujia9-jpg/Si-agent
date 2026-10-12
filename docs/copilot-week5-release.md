@@ -117,7 +117,7 @@ Langfuse 通过可选 OTel HTTP exporter 接收同一记录；默认停用。
 
 本机没有可用 Docker daemon，真实 PostgreSQL、pgvector 和 Compose 由 GitHub CI 验证。
 本地 Windows 的全量测试存在上游 Linux-only hosted 用例；UTF-8 模式与排除 hosted
-后的结果、产品回归及 Linux CI 最终结果将在收尾时记录于下方。
+后的结果、产品回归及 Linux CI 最终结果记录于下方。
 
 第六周将增加 Chat、token delta、审批 UI、Run Trace 和模型设置。第七周将比较
 本地检索门与 Jev、评测记忆质量和成本，并把评测结果接到 Eval Lab/Langfuse。
@@ -144,3 +144,22 @@ Langfuse 通过可选 OTel HTTP exporter 接收同一记录；默认停用。
   执行中取消不把已确认的外部成功误报为撤销，结果正文会清理，操作身份继续保留。
 
 - 修复后的运行时/适配器/规则回归为 **51 通过、22 跳过**（Windows，30.46 秒）。
+
+### 最终 CI 验收
+
+代码提交 `29461f6` 的 [GitHub Actions](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/38203484771)
+已完成，两个任务均成功：
+
+| 验收 | 结果 |
+|---|---|
+| Ruff | 全仓库检查通过 |
+| Linux 全仓库确定性测试 | **2585 通过、65 跳过**，117.10 秒，无失败 |
+| PostgreSQL + pgvector | 真实服务、隔离 schema、从零迁移及产品运行/审批/恢复用例通过 |
+| React 测试 | **2 个文件、3 个测试通过** |
+| React 生产构建 | 通过 |
+| Docker Compose | 数据库、迁移、API、Worker、Web 构建与启动通过 |
+| Compose HTTP 冒烟 | 导入、索引、引用、候选、版本、离线 Agent 回答和 SSE trace 通过 |
+
+跳过项由测试条件决定，不能按通过计数。所有模型与 Jev 的 wire-format 验证采用
+离线响应，OTLP 采用本地接收端；真实厂商质量、Langfuse 在线 UI 和 LLM judge 不在本轮结果内。
+主路径的 PostgreSQL 与 Compose 已在线 CI 验证，不能用本机 SQLite 冒烟代替这一项。
