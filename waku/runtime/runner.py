@@ -124,6 +124,8 @@ def enqueue_run(session, run, key):
 
 
 def approve_operation(session, operation, approved):
+    # Match runtime/forget's project -> run lock order before inserting FK-dependent jobs.
+    session.execute(select(Project).where(Project.id == operation.project_id).with_for_update())
     run = session.scalar(select(Run).where(Run.id == operation.run_id).with_for_update())
     operation = session.scalar(
         select(ToolOperation).where(ToolOperation.id == operation.id).with_for_update()
@@ -185,7 +187,11 @@ class Runtime:
         project = session.scalar(
             select(Project).where(Project.id == identity.project_id).with_for_update()
         )
-        job = session.scalar(select(Job).where(Job.id == job_id).with_for_update())
+        job = session.scalar(
+            select(Job)
+            .where(Job.id == job_id, Job.status == "running", Job.lease_token == token)
+            .with_for_update()
+        )
         if job is None or job.status != "running" or job.lease_token != token:
             raise RuntimeError("stale_lease")
         job.lease_until = now() + timedelta(seconds=90)
@@ -360,6 +366,8 @@ class Runtime:
                     ("decision_start", {"source": "jev"}),
                 )
             with trace.span("retrieval_gate") as (_, attrs):
+                if getattr(self.decisions, "model", None):
+                    attrs["model"] = self.decisions.model
                 decision = safe_decision(self.decisions, "retrieve", decision_state)
                 attrs.update(
                     asdict(decision.usage),
@@ -619,8 +627,8 @@ class Runtime:
             state, oid = json_value(run.context), op.id
             if run.status == "cancelled" or now() >= datetime.fromisoformat(state["deadline"]):
                 result = ToolResult(
-                    "failed",
-                    "Run cancelled or expired before dispatch",
+                    "unknown" if op.status == "running" else "failed",
+                    "Cancelled or expired; inspect any action already dispatched",
                     operation_id=oid,
                     error_code="run_cancelled",
                 ).to_dict()
@@ -663,10 +671,11 @@ class Runtime:
             run = self._locked(session, run.id, job_id, token)
             if run.status == "cancelled":
                 result = ToolResult(
-                    "failed",
-                    "Run cancelled before result commit",
+                    result["status"],
+                    "Run cancelled; this is the recorded action outcome, with payload removed",
                     operation_id=oid,
-                    error_code="run_cancelled",
+                    resource_id=result.get("resource_id"),
+                    error_code=None if result["status"] == "succeeded" else "run_cancelled",
                 ).to_dict()
             op = session.get(ToolOperation, oid)
             op.status, op.result = result["status"], json_value(result)

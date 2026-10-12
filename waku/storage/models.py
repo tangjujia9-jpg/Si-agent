@@ -78,7 +78,7 @@ class Run(Identity, Base):
     )
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
     thread_id: Mapped[str] = mapped_column(String(36))
-    status: Mapped[str] = mapped_column(String(16), default="pending")
+    status: Mapped[str] = mapped_column(String(20), default="pending")
     model: Mapped[str] = mapped_column(String(160), default="")
     trace_id: Mapped[str | None] = mapped_column(String(36))
     context: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)

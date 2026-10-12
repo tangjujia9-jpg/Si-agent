@@ -49,6 +49,8 @@ def process_enrichment(sessions, job_id, token, summarizer, extractor=None, deci
             for proposal in proposals:
                 heartbeat()
                 with observed("retention_gate") as (_, attrs):
+                    if getattr(decisions, "model", None):
+                        attrs["model"] = decisions.model
                     decision = safe_decision(
                         decisions,
                         "retain",

@@ -190,7 +190,7 @@ class LangfuseOTLP:
             ("input_tokens", "gen_ai.usage.input_tokens"),
             ("output_tokens", "gen_ai.usage.output_tokens"),
         ):
-            if source in attrs:
+            if attrs.get(source) is not None:
                 mapped[target] = attrs[source]
         start = int(datetime.fromisoformat(record["started_at"]).timestamp() * 1e9)
         end = int(datetime.fromisoformat(record["ended_at"]).timestamp() * 1e9)

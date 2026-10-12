@@ -10,6 +10,7 @@ depends_on = None
 
 
 def upgrade():
+    op.execute("ALTER TABLE runs ALTER COLUMN status TYPE VARCHAR(20)")
     op.drop_constraint("run_status", "runs", type_="check")
     op.create_check_constraint(
         "run_status",
@@ -59,3 +60,4 @@ def downgrade():
     op.create_check_constraint(
         "run_status", "runs", "status IN ('pending','running','succeeded','failed','cancelled')"
     )
+    op.execute("ALTER TABLE runs ALTER COLUMN status TYPE VARCHAR(16)")

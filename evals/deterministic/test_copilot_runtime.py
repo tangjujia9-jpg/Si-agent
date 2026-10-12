@@ -494,3 +494,55 @@ def test_retention_gate_filters_only_confident_negatives(backend, confidence, ex
         assert candidates[0].status == expected
         assert "jev-test" in candidates[0].reason
         assert candidates[0].job_id is None
+
+
+def test_lease_change_after_cached_job_read_blocks_model_dispatch(backend):
+    from sqlalchemy import event
+
+    client, sessions, _, _, rid, runtime, model, _ = setup_run(backend, [ModelResponse("stale")])
+    jid, token = claim(sessions)
+    engine = sessions.kw["bind"]
+    changed = []
+
+    def reclaimed(_conn, _cursor, statement, _params, _context, _many):
+        if not changed and "FROM projects" in statement:
+            changed.append(True)
+            with sessions.begin() as session:
+                session.get(Job, jid).lease_token = "new-owner"
+
+    event.listen(engine, "before_cursor_execute", reclaimed)
+    try:
+        with pytest.raises(RuntimeError, match="stale_lease"):
+            runtime.process(jid, token)
+    finally:
+        event.remove(engine, "before_cursor_execute", reclaimed)
+    assert changed and not model.requests
+    assert client.get(f"/api/runs/{rid}").json()["status"] == "pending"
+
+
+def test_cancel_during_write_does_not_claim_the_side_effect_was_undone(backend):
+    state = {}
+
+    def action(args, context, oid):
+        state["client"].post(f"/api/runs/{context.run_id}/cancel")
+        return {"resource_id": "already-created", "private": "sensitive body"}
+
+    tools = Executor([ToolSpec("propose_memory", "Write", Arguments, action, writes=True)])
+    client, sessions, _, _, rid, runtime, _, _ = setup_run(
+        backend,
+        [
+            ModelResponse(tool_calls=[{"id": "write", "name": "propose_memory", "arguments": {}}]),
+        ],
+        executor=tools,
+        tools=["propose_memory"],
+    )
+    state["client"] = client
+    run_job(sessions, runtime)
+    oid = client.get(f"/api/runs/{rid}").json()["operations"][0]["id"]
+    client.post(f"/api/operations/{oid}/approval", json={"approved": True})
+    run_job(sessions, runtime)
+    snap = client.get(f"/api/runs/{rid}").json()
+    assert snap["status"] == "cancelled"
+    result = snap["operations"][0]["result"]
+    assert result["status"] == "succeeded" and result["resource_id"] == "already-created"
+    assert result["data"] == {} and "sensitive" not in str(snap)

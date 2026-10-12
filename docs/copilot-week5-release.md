@@ -134,3 +134,13 @@ Langfuse 通过可选 OTel HTTP exporter 接收同一记录；默认停用。
   Langfuse OTLP 与可选 LangGraph；本机真实 PostgreSQL 用例因无服务明确跳过。
 
 - 产品/契约/规则/品牌回归最终为 **107 通过、63 跳过**（Windows，60.72 秒）；没有失败。
+
+- 本机还以独立 API/Worker 进程和临时 SQLite 数据库通过 HTTP 冒烟，验证 19 个运行事件及 SSE。
+  临时目录清理初次遇到 Windows 文件锁；测试服务已退出，业务冒烟结果为 passed。
+- 首次 Linux CI 为 2577 通过、65 跳过、4 失败，Compose 冒烟通过。
+  四个失败定位为迁移遗漏：waiting_operation 长度 17 超过旧 VARCHAR(16)。
+  已将 ORM 与迁移统一扩为 20，并重跑；同时补充租约缓存竞争与执行中取消的回归。
+- 租约检索在 SQL WHERE 中匹配 token，审批遵循 project→run 的加锁顺序。
+  执行中取消不把已确认的外部成功误报为撤销，结果正文会清理，操作身份继续保留。
+
+- 修复后的运行时/适配器/规则回归为 **51 通过、22 跳过**（Windows，30.46 秒）。

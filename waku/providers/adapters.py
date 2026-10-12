@@ -210,12 +210,8 @@ class DemoProvider:
         answer = "Offline demo. Retrieved project evidence: " + " ".join(dict.fromkeys(cites))
         if not cites:
             answer = "Offline demo. No project evidence was retrieved. Configure a provider for generated answers."
-        return ModelResponse(
-            answer,
-            usage=Usage(
-                estimated_size(request), len(answer), estimated_size(request) + len(answer)
-            ),
-        )
+        # No provider call happened; the runtime reservation is the estimate.
+        return ModelResponse(answer)
 
     def stream(self, model, request):
         result = self.complete(model, request)
