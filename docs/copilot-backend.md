@@ -1,7 +1,8 @@
 # Si-agent 后端与运行手册
 
 Si-agent 通过 FastAPI 接收项目与资料，使用 PostgreSQL 持久化，通过独立 Worker
-导入与索引，再由 React 展示检索结果。当前版本支持单用户多项目，尚未接通聊天生成。
+导入与索引，再由 React 展示检索结果。当前版本支持单用户多项目，后端已经接通
+自主 Agent Loop 与模型生成；React 的聊天与 Run Trace 界面进入第六周。
 
 ## 组件职责
 
@@ -70,7 +71,12 @@ SQLite 测试通过 `Base.metadata.create_all` 创建独立临时数据库；正
 | `POST /api/projects/{id}/context/reindex` | 刷新层级表示并排队重建向量 |
 | `GET /api/memory/search` | 查询词、项目、层级、预算与有效时间检索 |
 | `GET /api/memory/{node_id}` | 读取原文、URI、来源事件与 revision |
-| `POST /api/threads` | 创建会话记录；尚未提供流式聊天 |
+| `POST /api/threads` | 创建会话记录 |
+| `POST /api/threads/{id}/messages` | 幂等排队 Agent 运行，返回 202 |
+| `GET /api/runs/{id}`、`GET /api/runs/{id}/events` | 查询运行状态、预算、工具和持久化事件 |
+| `GET /api/runs/{id}/events/stream` | 按序号重放 SSE，暂停或结束时返回快照 |
+| `POST /api/operations/{id}/approval`、`POST /api/runs/{id}/cancel` | 批准/拒绝写工具与取消运行 |
+| `GET /api/models` | 列举后端配置的模型与能力，不返回密钥 |
 | `GET /health`、`GET /ready` | 存活与就绪检查 |
 
 当前导入接受 Markdown、文本和部分代码后缀的路径与正文；界面是粘贴表单，
@@ -86,13 +92,14 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 让多个 Worker 分别领取任务；过期租约允许恢复，旧 token 无权提交结果。失败任务
 有限重试，避免无限循环。向量计算放在事务外，并在提交前再次检查租约与内容版本。
 这些机制属于 Harness 的执行可靠性部分；数据库选型本身不是完整 Harness。
-模型预算、工具审批、工具 outbox 和长任务 checkpoint 仍需后续接线。
+第五周已接通模型预算、工具审批、工具 outbox 和 Run checkpoint，详情见
+[运行时手册](copilot-runtime.md)。
 
 ## 数据表与迁移
 
 第二周建立 `projects`、`threads`、`messages`、`runs`、`context_nodes` 和 `jobs`。
-第三周增加 `context_indexes` 与 `memory_writes`。`messages`、`runs` 的存在不代表
-新聊天运行时已接通；工具 outbox 仍待第五周实现。第四周已增加 `memory_versions`、`memory_evidence`、
+第三周增加 `context_indexes` 与 `memory_writes`。第五周已使用 `messages`、`runs`
+驱动独立的项目 Loop，并增加事件/operation/outbox。第四周已增加 `memory_versions`、`memory_evidence`、
 `memory_candidates` 和 `forget_tombstones`，版本和证据接口可以审计记忆变化。
 
 | 版本 | 内容 |
@@ -101,6 +108,7 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 | `0002_memory_indexes` | L0/L1/L2 索引与幂等写入记录 |
 | `0003_si_namespace` | 将节点 URI、父目录 URI 与导入结果根 URI 改为 `si://` |
 | `0004_memory_lifecycle` | 分块索引、历史/证据/候选/tombstone，并为旧项目排队 rebuild |
+| `0005_runtime` | 暂停/unknown 状态、有序运行事件、工具操作与 outbox |
 
 第三个迁移保留原文、节点 ID、来源事件、revision 与向量。URI 碰撞会让事务失败，
 不会覆盖已有节点。旧 URI 的客户端书签需要更新；原写入请求的 payload hash
@@ -112,14 +120,14 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 第一个任务运行 Ruff、领域/API/Worker/检索/规则文档测试、前端测试和构建，
 使用真实 `pgvector/pgvector:pg16` 服务，并为用例建立独立 schema。
 第二个任务构建整个 Compose，执行 `scripts/smoke_copilot.py`，验证导入、索引、
-引用检索与会话创建；失败保留日志，最后停止容器且不删卷。
+引用检索、离线 Agent 回答与 SSE trace；失败保留日志，最后停止容器且不删卷。
 
 上游另有全量确定性测试/技能验证、hosted Docker 与 tag 发布工作流。它们的
 范围、触发条件和新 Copilot 工作流不同；不能把一次 Copilot 成功当作全仓库验证。
 Judge 与付费 embedding 质量评测不在此离线流程内。
 
 中文验收结果见 [第二周](copilot-week2-release.md)、[第三周](copilot-week3-release.md)
-与[第四周](copilot-week4-release.md)。前三周背景见[源码导读](copilot-progress.zh-CN.md)。
+与[第四周](copilot-week4-release.md)、[第五周](copilot-week5-release.md)。前三周背景见[源码导读](copilot-progress.zh-CN.md)。
 
 第四周新增的 versions/evidence/candidates/apply/forget 接口及 Worker 的
 enrich/consolidate/rebuild 流程见[第四周报告](copilot-week4-release.md)。升级后执行

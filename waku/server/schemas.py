@@ -225,3 +225,31 @@ class EvidenceOutput(Output):
     checksum: str
     source_event_ids: list[str]
     redacted: bool
+
+
+class RunInput(Input):
+    content: str = Field(min_length=1, max_length=4000)
+    idempotency_key: str = Field(min_length=1, max_length=100)
+    provider: Literal["demo", "openai", "anthropic", "openai-compatible"] = "demo"
+    model: str = Field(default="evidence-demo", min_length=1, max_length=160)
+    tools: list[Literal["search_memory", "read_memory", "propose_memory"]] = Field(
+        default_factory=lambda: ["search_memory", "read_memory"], max_length=3
+    )
+    max_iterations: int = Field(default=8, ge=1, le=20)
+    max_tokens: int = Field(default=16000, ge=1000, le=100000)
+    max_tool_calls: int = Field(default=10, ge=0, le=30)
+    timeout_seconds: float = Field(default=120, gt=0, le=600)
+
+
+class ApprovalInput(Input):
+    approved: bool = Field(strict=True)
+
+
+class RunOutput(Output):
+    id: str
+    project_id: str
+    thread_id: str
+    status: str
+    model: str
+    trace_id: str | None
+    created_at: datetime

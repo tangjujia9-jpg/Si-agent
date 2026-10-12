@@ -122,6 +122,35 @@ def main():
     if not versions or versions[0]["snapshot"]["content"] != candidate_payload["content"]:
         raise RuntimeError("memory history did not preserve accepted decision")
     thread = request("/api/threads", {"project_id": project["id"]})
+    run = request(
+        f"/api/threads/{thread['id']}/messages",
+        {
+            "content": "What storage does this project use? pgvector?",
+            "idempotency_key": "smoke-turn",
+            "provider": "demo",
+            "model": "evidence-demo",
+        },
+    )
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        snapshot = request(f"/api/runs/{run['id']}")
+        if snapshot["status"] in {"failed", "unknown", "cancelled"}:
+            raise RuntimeError("Runtime did not complete: " + str(snapshot["error_code"]))
+        if snapshot["status"] == "succeeded":
+            break
+        time.sleep(0.5)
+    else:
+        raise RuntimeError("Worker did not finish offline run within 60 seconds")
+    if "[si://" not in snapshot["reply"]:
+        raise RuntimeError("Offline run did not cite its project evidence")
+    events = request(f"/api/runs/{run['id']}/events")
+    if not any(e["kind"] == "span" and e["data"]["name"] == "llm" for e in events):
+        raise RuntimeError("Model trace is missing")
+    with urlopen(
+        args.url.rstrip("/") + f"/api/runs/{run['id']}/events/stream", timeout=5
+    ) as stream:
+        if "event: snapshot" not in stream.read().decode():
+            raise RuntimeError("Durable SSE did not return a terminal snapshot")
     print(
         json.dumps(
             {
@@ -130,6 +159,8 @@ def main():
                 "job_id": job["id"],
                 "uri": node["uri"],
                 "thread_id": thread["id"],
+                "run_id": run["id"],
+                "run_events": len(events),
                 "retrieval_hits": len(search["hits"]),
                 "embedding_model": search["embedding_model"],
                 "candidate_id": candidate["id"],

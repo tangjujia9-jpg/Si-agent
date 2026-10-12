@@ -47,6 +47,12 @@ def test_each_variant_states_its_ink_outright():
 
 def test_the_readme_offers_both_inks():
     readme = (ROOT / "README.md").read_text()
+    if readme.startswith("# Si-agent\n"):
+        # A derivative uses its own identity while retaining upstream attribution.
+        assert "## Upstream Waku learning material and compatibility interface" in readme
+        assert "Built by [seanchen.io](https://seanchen.io)" in readme
+        assert all(f"docs/brand/{name}" not in readme for name in VARIANTS)
+        return
     assert 'media="(prefers-color-scheme: dark)"' in readme
     for name in VARIANTS:
         assert f"docs/brand/{name}" in readme, f"README never references {name}"

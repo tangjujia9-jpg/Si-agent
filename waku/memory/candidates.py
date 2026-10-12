@@ -157,22 +157,24 @@ def apply_candidate(session, job):
     return finish("applied", candidate.action.lower())
 
 
+def marker_proposals(content):
+    return [
+        {
+            "key": m.group(1).strip(),
+            "content": m.group(2).strip(),
+            "quote": m.group(),
+            "kind": "episodic",
+        }
+        for m in re.finditer(r"(?m)^(?:Decision|决定)\[([^\]\n]{1,80})\]:\s*([^\n]+)", content)
+    ]
+
+
 def extract_decisions(session, node, proposals=None):
     """Opt-in source notation: Decision[key]: text / 决定[key]: text; never auto-apply."""
     project = session.get(Project, node.project_id)
     count = 0
     if proposals is None:
-        proposals = [
-            {
-                "key": m.group(1).strip(),
-                "content": m.group(2).strip(),
-                "quote": m.group(),
-                "kind": "episodic",
-            }
-            for m in re.finditer(
-                r"(?m)^(?:Decision|决定)\[([^\]\n]{1,80})\]:\s*([^\n]+)", node.content
-            )
-        ]
+        proposals = marker_proposals(node.content)
     for proposal in proposals:
         key, content = proposal["key"], proposal["content"]
         if not re.fullmatch(r"[\w -]+", key) or not content:
@@ -201,7 +203,7 @@ def extract_decisions(session, node, proposals=None):
             )
             session.add(evidence)
             session.flush()
-        submit_candidate(
+        candidate = submit_candidate(
             session,
             project,
             {
@@ -224,6 +226,13 @@ def extract_decisions(session, node, proposals=None):
             },
             queue=False,
         )
+        decision = proposal.get("retention_decision")
+        if decision and candidate.status == "pending":
+            candidate.reason = f"retention:{decision.source};p={decision.probability:.3f};confidence={decision.confidence:.3f};{decision.reason}"[
+                :240
+            ]
+            if not decision.value and decision.confidence >= 0.8:
+                candidate.status = "skipped"
         count += 1
         if count == 100:
             break

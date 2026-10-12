@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 node_modules/
 .env
+infra/copilot.env
 state.db
 traces/
 *.ics

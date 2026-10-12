@@ -14,6 +14,9 @@ from waku.storage.models import (
     MemoryCandidate,
     MemoryEvidence,
     MemoryVersion,
+    Message,
+    Run,
+    ToolOperation,
 )
 
 
@@ -143,6 +146,45 @@ def forget_node(session, node, reason):
             session.scalars(select(MemoryEvidence).where(MemoryEvidence.node_id == current.id))
         )
         evidence_ids = {e.id for e in evidence}
+        # Old prompts/tool results can retain a deleted source even after indexes are cleared.
+        # Stop affected in-flight runs and redact their checkpoint/history before replay.
+        for run in session.scalars(
+            select(Run).where(Run.project_id == current.project_id).with_for_update()
+        ):
+            if not evidence_ids.intersection(
+                run.context.get("evidence_ids", [])
+            ) and current.id not in {ref["id"] for ref in run.context.get("source_nodes", [])}:
+                continue
+            run.context = {
+                **run.context,
+                "messages": [],
+                "query": "[forgotten source]",
+                "reply": "",
+                "pending_calls": [],
+                "evidence_ids": [],
+                "source_nodes": [],
+                "redacted": True,
+            }
+            if run.status not in {"succeeded", "failed", "cancelled", "unknown"}:
+                run.status = "cancelled"
+            for message in session.scalars(
+                select(Message).where(Message.project_id == current.project_id)
+            ):
+                if message.event_data.get("run_id") == run.id:
+                    message.content = "[source forgotten]"
+                    message.event_data = {"run_id": run.id, "redacted": True}
+            for operation in session.scalars(
+                select(ToolOperation).where(ToolOperation.run_id == run.id)
+            ):
+                operation.arguments = {}
+                operation.result = {
+                    "status": "failed",
+                    "message": "Source forgotten",
+                    "operation_id": operation.id,
+                    "error_code": "forgotten_source",
+                }
+                if operation.status in {"pending", "approved"}:
+                    operation.status = "rejected"
         hashes = {digest(v.snapshot["content"]) for v in versions if v.snapshot.get("content")}
         hashes.update(e.checksum for e in evidence)
         # Redact retained import payloads too, including imports predating

@@ -49,6 +49,12 @@ copilot = [
     "pgvector>=0.3,<1",
     "httpx>=0.27,<1",
 ]
+copilot-jev = ["typesafe-sdk==0.7.4"]
+copilot-workflow = ["langgraph>=1.0,<2"]
+copilot-observability = [
+    "opentelemetry-sdk==1.39.1",
+    "opentelemetry-exporter-otlp-proto-http==1.39.1",
+]
 # Eval pillar: LLM-as-judge (deterministic evals need only pytest)
 eval = [
     "pytest>=8.0",

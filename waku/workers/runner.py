@@ -27,6 +27,44 @@ from waku.workers.ingestion import import_documents
 LOG = logging.getLogger(__name__)
 
 
+def fail_runtime_job(session, job):
+    """A dead worker must not leave a run permanently waiting for an exhausted job."""
+    from waku.runtime.runner import TERMINAL, append_event
+    from waku.storage.models import OutboxEvent, Run, ToolOperation
+
+    operation = (
+        session.get(ToolOperation, job.payload.get("operation_id"))
+        if job.kind == "tool_outbox"
+        else None
+    )
+    rid = operation.run_id if operation else job.payload.get("run_id")
+    if not rid:
+        return
+    run = session.scalar(select(Run).where(Run.id == rid).with_for_update())
+    if not run or run.status in TERMINAL:
+        return
+    # After a dispatched write, loss of the result means the outcome is uncertain.
+    status = "unknown" if operation and operation.status == "running" else "failed"
+    run.status = status
+    run.context = {**run.context, "error_code": "worker_retry_exhausted"}
+    if operation:
+        from waku.domain.contracts import ToolResult
+
+        operation.status = status
+        operation.result = ToolResult(
+            status,
+            "Worker retries exhausted; inspect dispatched actions",
+            operation_id=operation.id,
+            error_code="worker_retry_exhausted",
+        ).to_dict()
+        outbox = session.scalar(select(OutboxEvent).where(OutboxEvent.operation_id == operation.id))
+        if outbox:
+            outbox.status = status
+    append_event(
+        session, run, "run_end", {"status": status, "error_code": "worker_retry_exhausted"}
+    )
+
+
 def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
     current = now()
     with sessions.begin() as session:
@@ -59,6 +97,7 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
             job.error = "Retry limit reached after worker interruption"
             job.lease_until = None
             job.lease_token = None
+            fail_runtime_job(session, job)
             return None
         job.attempts += 1
         job.status = "running"
@@ -67,20 +106,37 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
         return job.id, job.lease_token
 
 
-def process(
-    sessions, job_id: str, token: str, embedder=None, summarizer=None, extractor=None
+def _process(
+    sessions, job_id: str, token: str, embedder=None, summarizer=None, extractor=None, runtime=None
 ) -> bool:
     try:
         with sessions() as session:
             job = session.get(Job, job_id)
             is_index = job is not None and job.kind == "index"
             is_enrich = job is not None and job.kind == "enrich"
+            runtime_kind = job.kind if job and job.kind in ("run", "tool_outbox") else None
             project_id = job.project_id if job else None
+        if runtime_kind:
+            if runtime is None:
+                from waku.memory.postgres import PostgresMemory
+                from waku.runtime.runner import Runtime
+                from waku.tools.executor import project_executor
+
+                memory = PostgresMemory(sessions, embedder)
+                runtime = Runtime(sessions, memory, project_executor(memory, sessions))
+            return (runtime.process if runtime_kind == "run" else runtime.process_operation)(
+                job_id, token
+            )
         if is_index:
             return process_index(sessions, job_id, token, embedder)
         if is_enrich:
             return process_enrichment(
-                sessions, job_id, token, summarizer or ExtractiveSummarizer(), extractor
+                sessions,
+                job_id,
+                token,
+                summarizer or ExtractiveSummarizer(),
+                extractor,
+                runtime.decisions if runtime else None,
             )
         with sessions.begin() as session:
             session.execute(select(Project).where(Project.id == project_id).with_for_update())
@@ -119,15 +175,45 @@ def process(
                 job.lease_until = None
                 job.lease_token = None
                 job.error = f"Job failed ({type(exc).__name__})"
+                if job.status == "failed":
+                    fail_runtime_job(session, job)
         LOG.warning("Job %s failed (%s)", job_id, type(exc).__name__)
         return False
 
 
-def run_once(sessions, embedder=None, summarizer=None, extractor=None) -> bool:
+def process(sessions, job_id, token, embedder=None, summarizer=None, extractor=None, runtime=None):
+    from waku.runtime.telemetry import Telemetry
+
+    with sessions() as session:
+        job = session.get(Job, job_id)
+        kind, project_id, attempt = job.kind, job.project_id, job.attempts
+    if kind in {"run", "tool_outbox"}:
+        return _process(sessions, job_id, token, embedder, summarizer, extractor, runtime)
+    records = []
+    trace = Telemetry(records.append, runtime.exporter if runtime else None, trace_id=job_id)
+    with trace.span("job", {"job_id": job_id, "project_id": project_id}) as (_, attrs):
+        ok = _process(sessions, job_id, token, embedder, summarizer, extractor, runtime)
+        attrs["status"] = "succeeded" if ok else "failed"
+    with sessions.begin() as session:
+        job = session.get(Job, job_id)
+        # A stale worker must not replace a newer worker's result or tracing.
+        if job.lease_token is None and job.attempts == attempt:
+            job.result = {**job.result, "spans": records[-200:]}
+    return ok
+
+
+def run_once(sessions, embedder=None, summarizer=None, extractor=None, runtime=None) -> bool:
     claimed = claim(sessions)
     if claimed is None:
         return False
-    process(sessions, *claimed, embedder=embedder, summarizer=summarizer, extractor=extractor)
+    process(
+        sessions,
+        *claimed,
+        embedder=embedder,
+        summarizer=summarizer,
+        extractor=extractor,
+        runtime=runtime,
+    )
     return True
 
 
@@ -144,10 +230,29 @@ def main():
     embedder = configured_embedder()
     summarizer = configured_summarizer()
     extractor = configured_extractor()
+    from waku.memory.postgres import PostgresMemory
+    from waku.runtime.decisions import configured_decisions
+    from waku.runtime.runner import Runtime
+    from waku.runtime.telemetry import configured_exporter
+    from waku.tools.executor import project_executor
+
+    memory = PostgresMemory(sessions, embedder)
+    exporter = configured_exporter()
+    runtime = Runtime(
+        sessions,
+        memory,
+        project_executor(memory, sessions),
+        decisions=configured_decisions(),
+        exporter=exporter,
+    )
     try:
         while True:
             worked = run_once(
-                sessions, embedder=embedder, summarizer=summarizer, extractor=extractor
+                sessions,
+                embedder=embedder,
+                summarizer=summarizer,
+                extractor=extractor,
+                runtime=runtime,
             )
             if args.once:
                 break
@@ -156,6 +261,10 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        if hasattr(runtime.decisions, "close"):
+            runtime.decisions.close()
+        if exporter:
+            exporter.close()
         engine.dispose()
 
 

@@ -6,7 +6,7 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-12
 
 ---
 
@@ -17,8 +17,12 @@ context console run through project/import/index/search/inspection. Scoped tier
 retrieval combines full-text ranking and pgvector, with configured embeddings
 or explicitly labeled demo vectors. Chunk evidence, historical revisions, candidate
 actions/conflicts, optional model enrichment and durable logical forget are implemented.
-Original loop integration and Langfuse are scheduled with the runtime Harness.
-See [copilot-week4-release.md](copilot-week4-release.md) for verification limits
+The project Worker now runs an independent provider-neutral Loop with scoped
+memory, budgets, operation approvals, outbox and durable checkpoints. OpenAI,
+Anthropic and compatible adapters, optional Jev decisions, Langfuse OTLP export
+and a callable LangGraph workflow adapter are implemented. The React chat/trace
+screens, real-provider quality benchmarks and live Langfuse acceptance remain pending.
+See [copilot-week5-release.md](copilot-week5-release.md) for verification limits
 and [copilot-backend.md](copilot-backend.md) for startup commands.
 
 The four pillars run: the loop, memory (semantic + episodic + procedural with
@@ -26,7 +30,7 @@ a retrieval gate), tools, and both eval tiers. `waku`, `waku dashboard`,
 `waku voice`, `waku telegram`, `waku discord`, `waku brief` and
 `waku connect google` all start.
 
-**950 deterministic evals pass offline**, with no API key; 60 more are live
+The upstream baseline reports **950 deterministic evals offline**, with no API key; 60 more are live
 evals that skip without one. CI runs the offline tier on every PR along with
 ruff, the skills validator, and a check that `.env.example` still matches the
 integrations registry.

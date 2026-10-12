@@ -71,13 +71,17 @@ class CompatibleEmbedder:
             for offset in range(0, len(texts), 16):
                 batch = texts[offset : offset + 16]
                 headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-                response = client.post(
+                from waku.runtime.telemetry import traced_post
+
+                payload = traced_post(
+                    client,
                     f"{self.base_url}/embeddings",
+                    kind="embedding",
+                    model=self.model,
                     headers=headers,
-                    json={"model": self.model, "input": batch},
+                    payload={"model": self.model, "input": batch},
                 )
-                response.raise_for_status()
-                data = sorted(response.json()["data"], key=lambda row: row["index"])
+                data = sorted(payload["data"], key=lambda row: row["index"])
                 if [row["index"] for row in data] != list(range(len(batch))):
                     raise ValueError("embedding response indexes mismatch")
                 out.extend(validate_vectors([row["embedding"] for row in data], len(batch)))

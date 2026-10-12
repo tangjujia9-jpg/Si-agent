@@ -4,13 +4,15 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from waku.memory.candidates import extract_decisions
+from waku.memory.candidates import extract_decisions, marker_proposals
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.lifecycle import blocked, record_version
+from waku.runtime.decisions import safe_decision
+from waku.runtime.telemetry import observed
 from waku.storage.models import ContextNode, Job, Project, now
 
 
-def process_enrichment(sessions, job_id, token, summarizer, extractor=None):
+def process_enrichment(sessions, job_id, token, summarizer, extractor=None, decisions=None):
     with sessions() as session:
         job = session.get(Job, job_id)
         if not job or job.status != "running" or job.lease_token != token:
@@ -39,13 +41,37 @@ def process_enrichment(sessions, job_id, token, summarizer, extractor=None):
                 raise RuntimeError("enrichment lease lost")
             job.lease_until = now() + timedelta(seconds=60)
 
+    def proposals_for(content):
+        proposals = (
+            extractor.extract(content, heartbeat) if extractor else marker_proposals(content)
+        )[:100]
+        if decisions:
+            for proposal in proposals:
+                heartbeat()
+                with observed("retention_gate") as (_, attrs):
+                    decision = safe_decision(
+                        decisions,
+                        "retain",
+                        {"text": proposal["content"], "source": proposal["quote"]},
+                    )
+                    attrs.update(
+                        source=decision.source,
+                        probability=decision.probability,
+                        confidence=decision.confidence,
+                        input_tokens=decision.usage.input_tokens,
+                        output_tokens=decision.usage.output_tokens,
+                        total_tokens=decision.usage.total_tokens,
+                    )
+                proposal["retention_decision"] = decision
+        return proposals
+
     prepared = [
         (
             node_id,
             revision,
             content,
             summarizer.summarize(content, heartbeat),
-            extractor.extract(content, heartbeat) if extractor else None,
+            proposals_for(content),
         )
         for node_id, revision, content in snapshots
     ]

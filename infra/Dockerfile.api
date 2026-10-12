@@ -3,7 +3,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md LICENSE LICENSE-BRAND ./
 COPY waku ./waku
 COPY skills ./skills
-RUN pip install --no-cache-dir uv==0.9.26 && uv sync --frozen --extra copilot --no-dev
+RUN pip install --no-cache-dir uv==0.9.26 && uv sync --frozen --extra copilot --extra copilot-jev --extra copilot-observability --no-dev
 COPY alembic.ini ./
 COPY infra/migrations ./infra/migrations
 ENV PATH="/app/.venv/bin:$PATH"

@@ -31,10 +31,15 @@ class CompatibleSummarizer:
         import httpx
 
         with httpx.Client(timeout=20, follow_redirects=False) as client:
-            response = client.post(
+            from waku.runtime.telemetry import traced_post
+
+            payload = traced_post(
+                client,
                 self.url + "/chat/completions",
+                kind="summarization",
+                model=self.model,
                 headers={"Authorization": "Bearer " + self.key} if self.key else {},
-                json={
+                payload={
                     "model": self.model,
                     "temperature": 0,
                     "max_tokens": 1200,
@@ -47,8 +52,7 @@ class CompatibleSummarizer:
                     ],
                 },
             )
-            response.raise_for_status()
-            data = json.loads(response.json()["choices"][0]["message"]["content"])
+            data = json.loads(payload["choices"][0]["message"]["content"])
             if set(data) != {"abstract", "overview"} or not all(
                 isinstance(v, str) and v.strip() for v in data.values()
             ):

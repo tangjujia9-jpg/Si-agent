@@ -18,6 +18,7 @@ from waku.memory.embeddings import configured_embedder
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.port import MemoryQuery
 from waku.memory.postgres import PostgresMemory
+from waku.server.runs import run_routes
 from waku.server.schemas import (
     CandidateInput,
     CandidateOutput,
@@ -43,8 +44,11 @@ from waku.storage.models import (
     MemoryCandidate,
     MemoryEvidence,
     MemoryVersion,
+    OutboxEvent,
     Project,
+    RunEvent,
     Thread,
+    ToolOperation,
 )
 
 USER_ID = "default"
@@ -116,6 +120,8 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         session.execute(select(Project.id).limit(1))
         session.execute(select(ContextIndex.id).limit(1))
         session.execute(select(MemoryVersion.id).limit(1))
+        for model in (RunEvent, ToolOperation, OutboxEvent):
+            session.execute(select(model.id).limit(1))
         return {"status": "ready"}
 
     @app.post("/api/projects", response_model=ProjectOutput, status_code=201)
@@ -312,4 +318,5 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         queue_candidate(session, candidate)
         return candidate
 
+    app.include_router(run_routes(sessions, USER_ID))
     return app

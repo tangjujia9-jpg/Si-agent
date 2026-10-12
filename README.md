@@ -5,7 +5,8 @@ project API, durable imports, cited tiered hybrid retrieval, and an independent 
 `docker compose -f infra/compose.yaml up -d --build` and open
 `http://127.0.0.1:8080`. See [the product guide](docs/copilot-backend.md) for
 the current capabilities and [memory configuration](docs/copilot-memory.md).
-The [roadmap](docs/copilot-roadmap.md) schedules Langfuse tracing. The original Waku
+The [runtime guide](docs/copilot-runtime.md) covers the autonomous Loop, approvals,
+provider adapters and optional Langfuse export. The original Waku
 core below retains its attribution and local assistant interface.
 
 中文开发文档：[三周进展与源码导读](docs/copilot-progress.zh-CN.md)、
@@ -13,6 +14,8 @@ core below retains its attribution and local assistant interface.
 产品命名与虚拟目录采用 Si-agent / `si://`；Python 包和旧命令暂留兼容。
 
 第四周新增分块证据、历史版本、候选处理与忘记屏障，见[中文验收报告](docs/copilot-week4-release.md)。
+第五周打通自主 Agent Loop、工具审批与恢复、多模型、Jev 决策和 Langfuse 导出，
+见[第五周中文验收](docs/copilot-week5-release.md)。React 聊天与运行轨迹进入第六周。
 
 ## Upstream Waku learning material and compatibility interface
 

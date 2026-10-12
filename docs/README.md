@@ -36,6 +36,8 @@ into four groups.
 | [copilot-week3-release.md](copilot-week3-release.md) | 第三周中文验收报告：已实现链路与验收边界 |
 | [copilot-week4-release.md](copilot-week4-release.md) | 第四周中文验收：分块、候选、证据、历史版本、冲突与忘记 |
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
+| [copilot-runtime.md](copilot-runtime.md) | 第五周运行时、工具恢复、Provider、Jev 与 Langfuse 设计 |
+| [copilot-week5-release.md](copilot-week5-release.md) | 第五周中文验收：自主 Loop、Harness、模型接入、Jev、Langfuse 与恢复边界 |
 | [context-copilot-design.md](context-copilot-design.md) | 第一周中文设计记录：领域契约与 FTS5 基线 |
 | [WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md](WAKU_AGENT_LEARNING_SUMMARY.zh-CN.md) | Chinese source walkthrough and architecture learning notes |
 | [loop-vs-graph.md](loop-vs-graph.md) | when a turn needs shape, and why the loop never changes |

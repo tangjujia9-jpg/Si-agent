@@ -99,8 +99,22 @@ materializes previews and fences asynchronous embedding writes. `infra/`
 contains the Postgres migrations and Compose deployment. The original
 Waku loop still uses its SQLite path; see [the product guide](copilot-backend.md)
 for the boundary and migration milestones. [The memory guide](copilot-memory.md)
-records retrieval limits; [the roadmap](copilot-roadmap.md) schedules Langfuse
-tracing for the provider/tool Harness milestone.
+records retrieval limits; [the runtime guide](copilot-runtime.md) covers the
+independent project Loop, provider-neutral messages, approvals, outbox,
+durable checkpoints and optional Jev/Langfuse/LangGraph adapters. The original
+diagram describes the compatibility CLI; the product path is:
+
+```text
+React → FastAPI → Run/Job → Worker → Si Runtime
+  → retrieval gate → Memory Port → Context Compiler → Provider
+  → tool schema/operation → approval → outbox → resume
+  → durable RunEvent/SSE + optional Langfuse OTLP
+```
+
+`waku/runtime/runner.py` owns the product Loop; `waku/server/runs.py` owns its
+API. `waku/providers/adapters.py` and `waku/tools/executor.py` own the model
+and tool boundaries. The [week-five report](copilot-week5-release.md) separates
+implemented backend behavior from the remaining frontend and online acceptance.
 
 - `waku/gateway/` — how text gets in and out: `cli.py`, `voice.py` (wake word),
   `telegram.py`, `discord.py` and `whatsapp.py`, started by `runner.py` and

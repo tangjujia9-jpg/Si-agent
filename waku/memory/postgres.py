@@ -20,6 +20,7 @@ from waku.memory.embeddings import Embedder, terms, validate_vectors
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.lifecycle import blocked, forget_node, record_version
 from waku.memory.port import MemoryQuery, MemoryWrite, MemoryWriteReceipt
+from waku.runtime.telemetry import observed
 from waku.storage.models import (
     ContextIndex,
     ContextNode,
@@ -355,7 +356,7 @@ class PostgresMemory:
                         "No vectors for this model are ready in this scope; request reindex or wait for the worker."
                     )
 
-            def ranked(tier, *, directories=False, parents=None):
+            def ranked_impl(tier, *, directories=False, parents=None):
                 started = time.perf_counter()
                 statement = base.where(ContextIndex.tier == tier)
                 statement = statement.where(
@@ -433,6 +434,13 @@ class PostgresMemory:
                 )
                 return out
 
+            def ranked(tier, *, directories=False, parents=None):
+                stage = f"{tier}_{'directories' if directories else 'leaves'}"
+                with observed("retrieval_" + stage, {"stage": stage}) as (_, attrs):
+                    out = ranked_impl(tier, directories=directories, parents=parents)
+                    attrs["count"] = len(out)
+                    return out
+
             l0 = ranked("l0", directories=True)[:6]
             l1 = ranked("l1", directories=True, parents={n.uri for _, _, n in l0})[:6]
             if not l1:
@@ -469,7 +477,18 @@ class PostgresMemory:
                         )
                     )
                     if row.tier == "l2"
-                    else []
+                    else list(
+                        session.scalars(
+                            select(MemoryEvidence)
+                            .where(
+                                MemoryEvidence.node_id == node.id,
+                                MemoryEvidence.revision == node.revision,
+                                MemoryEvidence.redacted.is_(False),
+                            )
+                            .order_by(MemoryEvidence.start_char)
+                            .limit(32)
+                        )
+                    )
                 )
                 excerpt = snippet(row.body, query.text)
                 offset = row.body.find(excerpt)
@@ -482,7 +501,7 @@ class PostgresMemory:
                         score=round(score, 8),
                         source=node.kind,
                         project_scope=project.id,
-                        evidence_ids=tuple(e.id for e in evidence) or tuple(node.source_event_ids),
+                        evidence_ids=tuple(e.id for e in evidence),
                         valid_from=node.valid_from,
                         valid_to=node.valid_to,
                         revision=node.revision,
@@ -492,7 +511,8 @@ class PostgresMemory:
                         else None,
                     )
                 )
-        context = compile_context(hits, query.max_tokens)
+        with observed("context_compile", {"count": len(hits)}):
+            context = compile_context(hits, query.max_tokens)
         stages.append(
             {
                 "stage": "context_compile",

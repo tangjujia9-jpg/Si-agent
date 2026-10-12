@@ -26,9 +26,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install uv==0.9.26
-      - run: uv sync --frozen --extra dev --extra copilot --extra hosted
+      - run: uv sync --frozen --extra dev --extra copilot --extra copilot-jev --extra copilot-observability --extra copilot-workflow --extra hosted
       - run: uv run --no-sync ruff check waku evals scripts hosted
-      - run: uv run --no-sync pytest -q evals/deterministic/test_copilot_backend.py evals/deterministic/test_copilot_memory.py evals/deterministic/test_copilot_lifecycle.py evals/deterministic/test_project_contracts.py evals/deterministic/test_rulebook.py
+      - run: uv run --no-sync pytest -q evals/deterministic
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

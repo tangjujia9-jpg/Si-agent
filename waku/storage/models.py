@@ -72,7 +72,7 @@ class Run(Identity, Base):
     __table_args__ = (
         ForeignKeyConstraint(["thread_id", "project_id"], ["threads.id", "threads.project_id"]),
         CheckConstraint(
-            "status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')",
+            "status IN ('pending', 'running', 'waiting_approval', 'waiting_operation', 'succeeded', 'failed', 'cancelled', 'unknown')",
             name="run_status",
         ),
     )
@@ -82,6 +82,43 @@ class Run(Identity, Base):
     model: Mapped[str] = mapped_column(String(160), default="")
     trace_id: Mapped[str | None] = mapped_column(String(36))
     context: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+
+
+class RunEvent(Identity, Base):
+    __tablename__ = "run_events"
+    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_run_event_sequence"),)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(40))
+    data: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+
+
+class ToolOperation(Identity, Base):
+    __tablename__ = "tool_operations"
+    __table_args__ = (
+        UniqueConstraint("run_id", "call_id", name="uq_operation_call"),
+        CheckConstraint(
+            "status IN ('pending','approved','running','succeeded','failed','partial','unknown','rejected')",
+            name="operation_status",
+        ),
+    )
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    call_id: Mapped[str] = mapped_column(String(128))
+    tool: Mapped[str] = mapped_column(String(80))
+    arguments: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    result: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"))
+
+
+class OutboxEvent(Identity, Base):
+    __tablename__ = "outbox_events"
+    __table_args__ = (UniqueConstraint("operation_id", name="uq_outbox_operation"),)
+    operation_id: Mapped[str] = mapped_column(ForeignKey("tool_operations.id"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"))
+    status: Mapped[str] = mapped_column(String(20), default="queued")
 
 
 class ContextNode(Identity, Base):

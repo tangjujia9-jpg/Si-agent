@@ -18,10 +18,15 @@ class CompatibleExtractor:
         with httpx.Client(timeout=20, follow_redirects=False) as client:
             for chunk in chunks(text):
                 heartbeat()
-                response = client.post(
+                from waku.runtime.telemetry import traced_post
+
+                payload = traced_post(
+                    client,
                     self.url + "/chat/completions",
+                    kind="extraction",
+                    model=self.model,
                     headers={"Authorization": "Bearer " + self.key} if self.key else {},
-                    json={
+                    payload={
                         "model": self.model,
                         "temperature": 0,
                         "max_tokens": 1600,
@@ -34,8 +39,7 @@ class CompatibleExtractor:
                         ],
                     },
                 )
-                response.raise_for_status()
-                data = json.loads(response.json()["choices"][0]["message"]["content"])
+                data = json.loads(payload["choices"][0]["message"]["content"])
                 if (
                     not isinstance(data, dict)
                     or set(data) != {"candidates"}
