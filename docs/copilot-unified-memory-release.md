@@ -81,10 +81,16 @@ React 页面仍提供项目、资料导入、目录、原文和检索，候选�
 Ruff 已通过。新增用例验证检索复用、摘要证据稳定、依赖失效、增量与重试、
 助手事实隔离、遗忘、租约丢失和统一留存策略。
 React 的 3 项测试、TypeScript 检查和 Vite 生产构建均通过。
+最后一轮定向回归通过 50 项、跳过 35 项，包含新增的 100 条消息续批和 session 来源不可覆写用例。
 测试故意关闭来源失效标记时，来源更新用例失败，恢复实现后通过。
-完整验证结果会在本轮最后核对后更新。
 
-本机 Docker 引擎当前不可用，因此尚未在本机确认真实 PostgreSQL 迁移和 Compose 闭环。
+GitHub CI 对实现提交 `57402e9` 的[完整验证](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/38894967020)已通过：
+
+- contracts-api-storage：完整 deterministic 回归 2608 项通过、66 项跳过，使用真实 PostgreSQL/pgvector，包含旧库迁移用例。
+- 同一作业的 Ruff、React 3 项测试、TypeScript 检查和 Vite 生产构建通过。
+- compose-smoke：API、Worker、数据库和 Web 启动成功，扩展脚本验证了会话蒸馏、待审、接受和正式记忆读取。
+
+本机 Docker 引擎当前不可用，真实数据库与 Compose 验证由上述 Linux CI 完成。
 离线标记和脚本模型测试不等于真实 Jev、Embedding、生成模型或 Langfuse 质量验收。
 
 ## 后续仍需完成
