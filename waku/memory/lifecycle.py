@@ -127,6 +127,29 @@ def blocked(session, project_id, uri, content, evidence_ids=()):
     return False
 
 
+def invalidate_dependents(session, source):
+    """Conservatively hide derived facts until fresh evidence is explicitly accepted."""
+    pending, visited = [source], {source.id}
+    leaves = list(
+        session.scalars(
+            select(ContextNode).where(
+                ContextNode.project_id == source.project_id, ContextNode.kind != "directory"
+            )
+        )
+    )
+    while pending:
+        current = pending.pop()
+        ids = set(
+            session.scalars(select(MemoryEvidence.id).where(MemoryEvidence.node_id == current.id))
+        )
+        for node in leaves:
+            if node.id not in visited and ids.intersection(node.source_event_ids):
+                node.needs_review = True
+                visited.add(node.id)
+                pending.append(node)
+    return visited - {source.id}
+
+
 def forget_node(session, node, reason):
     """Durable logical deletion, with redaction of versions and derived memories."""
     if node.kind == "directory":
@@ -146,14 +169,25 @@ def forget_node(session, node, reason):
             session.scalars(select(MemoryEvidence).where(MemoryEvidence.node_id == current.id))
         )
         evidence_ids = {e.id for e in evidence}
+        origin_runs = set()
+        if current.kind == "session":
+            for mid in current.source_event_ids:
+                message = session.get(Message, mid)
+                if message and message.project_id == current.project_id:
+                    if message.event_data.get("run_id"):
+                        origin_runs.add(message.event_data["run_id"])
+                    message.content = "[source forgotten]"
+                    message.event_data = {**message.event_data, "redacted": True}
         # Old prompts/tool results can retain a deleted source even after indexes are cleared.
         # Stop affected in-flight runs and redact their checkpoint/history before replay.
         for run in session.scalars(
             select(Run).where(Run.project_id == current.project_id).with_for_update()
         ):
-            if not evidence_ids.intersection(
-                run.context.get("evidence_ids", [])
-            ) and current.id not in {ref["id"] for ref in run.context.get("source_nodes", [])}:
+            if (
+                run.id not in origin_runs
+                and not evidence_ids.intersection(run.context.get("evidence_ids", []))
+                and current.id not in {ref["id"] for ref in run.context.get("source_nodes", [])}
+            ):
                 continue
             run.context = {
                 **run.context,
@@ -163,6 +197,7 @@ def forget_node(session, node, reason):
                 "pending_calls": [],
                 "evidence_ids": [],
                 "source_nodes": [],
+                "retrieval_cache": None,
                 "redacted": True,
             }
             if run.status not in {"succeeded", "failed", "cancelled", "unknown"}:
@@ -251,6 +286,7 @@ def forget_node(session, node, reason):
         current.content = current.abstract = current.overview = ""
         current.embedding, current.search_vector = None, None
         current.status = "retracted"
+        current.needs_review = False
         current.revision += 1
         record_version(session, current)
     return visited

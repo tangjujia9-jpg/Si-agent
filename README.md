@@ -16,6 +16,8 @@ core below retains its attribution and local assistant interface.
 第四周新增分块证据、历史版本、候选处理与忘记屏障，见[中文验收报告](docs/copilot-week4-release.md)。
 第五周打通自主 Agent Loop、工具审批与恢复、多模型、Jev 决策和 Langfuse 导出，
 见[第五周中文验收](docs/copilot-week5-release.md)。React 聊天与运行轨迹进入第六周。
+统一记忆第一阶段接通会话增量候选、单次运行检索复用与来源失效传播，
+见[中文验收与升级步骤](docs/copilot-unified-memory-release.md)。
 
 ## Upstream Waku learning material and compatibility interface
 

@@ -50,11 +50,14 @@ class Thread(Identity, Base):
     __table_args__ = (UniqueConstraint("id", "project_id"),)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
     title: Mapped[str] = mapped_column(String(160))
+    event_sequence: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    memory_cursor: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class Message(Identity, Base):
     __tablename__ = "messages"
     __table_args__ = (
+        Index("ix_messages_thread_sequence", "thread_id", "sequence"),
         ForeignKeyConstraint(["thread_id", "project_id"], ["threads.id", "threads.project_id"]),
         CheckConstraint("role IN ('user', 'assistant', 'tool')", name="message_role"),
     )
@@ -62,6 +65,7 @@ class Message(Identity, Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
+    sequence: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     event_data: Mapped[dict] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), default=dict
     )
@@ -141,6 +145,8 @@ class ContextNode(Identity, Base):
     content: Mapped[str] = mapped_column(Text, default="")
     checksum: Mapped[str | None] = mapped_column(String(64))
     revision: Mapped[int] = mapped_column(Integer, default=1)
+    representation_revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    needs_review: Mapped[bool] = mapped_column(default=False, server_default="false")
     source_event_ids: Mapped[list] = mapped_column(JSON, default=list)
     confidence: Mapped[float | None] = mapped_column(Float)
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -189,6 +195,7 @@ class ContextIndex(Identity, Base):
     node_id: Mapped[str] = mapped_column(ForeignKey("context_nodes.id", ondelete="CASCADE"))
     tier: Mapped[str] = mapped_column(String(2))
     revision: Mapped[int] = mapped_column(Integer)
+    representation_revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     body: Mapped[str] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0)
     start_char: Mapped[int] = mapped_column(Integer, default=0)

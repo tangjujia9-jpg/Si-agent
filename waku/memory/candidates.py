@@ -7,7 +7,7 @@ from urllib.parse import quote
 from sqlalchemy import select
 
 from waku.domain.contracts import MemoryNode
-from waku.memory.lifecycle import blocked, digest, record_version
+from waku.memory.lifecycle import blocked, digest, invalidate_dependents, record_version
 from waku.memory.port import MemoryWrite
 from waku.memory.postgres import PostgresMemory, root_uri, validate_uri
 from waku.storage.models import ContextNode, Job, MemoryCandidate, MemoryEvidence, Project
@@ -19,6 +19,8 @@ def submit_candidate(session, project, payload, *, queue=True):
     parent = validate_uri(payload["uri"], project.user_id, project.id)
     if parent is None:
         raise ValueError("candidate must target a leaf URI")
+    if payload["uri"].startswith(root_uri(project.user_id, project.id) + "/sessions/"):
+        raise ValueError("session source snapshots cannot be mutated as memories")
     checksum = digest(json.dumps(payload, sort_keys=True, ensure_ascii=False))
     old = session.scalar(
         select(MemoryCandidate).where(
@@ -33,7 +35,14 @@ def submit_candidate(session, project, payload, *, queue=True):
     for evidence_id in payload["evidence_ids"]:
         evidence = session.get(MemoryEvidence, evidence_id)
         source = session.get(ContextNode, evidence.node_id) if evidence else None
-        if not source or source.project_id != project.id or evidence.redacted:
+        if (
+            not source
+            or source.project_id != project.id
+            or evidence.redacted
+            or source.status != "active"
+            or source.needs_review
+            or source.revision != evidence.revision
+        ):
             raise ValueError("evidence must belong to this project and not be redacted")
     candidate = MemoryCandidate(project_id=project.id, payload_hash=checksum, **payload)
     session.add(candidate)
@@ -92,6 +101,7 @@ def apply_candidate(session, job):
             not source
             or source.project_id != job.project_id
             or source.status != "active"
+            or source.needs_review
             or source.revision != evidence.revision
         ):
             return finish("conflict", "stale_or_invalid_evidence")
@@ -126,6 +136,7 @@ def apply_candidate(session, job):
             return finish("conflict", "target_exists")
     if candidate.action == "RETRACT":
         record_version(session, current)
+        invalidate_dependents(session, current)
         current.status, current.revision = "retracted", current.revision + 1
         record_version(session, current)
         from waku.memory.indexing import enqueue_index, refresh_indexes

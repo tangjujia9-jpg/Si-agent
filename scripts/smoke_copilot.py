@@ -151,6 +151,50 @@ def main():
     ) as stream:
         if "event: snapshot" not in stream.read().decode():
             raise RuntimeError("Durable SSE did not return a terminal snapshot")
+
+    def finished_job(job_id):
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            row = request(f"/api/jobs/{job_id}")
+            if row["status"] == "succeeded":
+                return row
+            if row["status"] == "failed":
+                raise RuntimeError("Unified memory job failed: " + str(row["error"]))
+            time.sleep(0.5)
+        raise RuntimeError("Unified memory job did not finish within 60 seconds")
+
+    # Chat-derived facts enter the same evidence/candidate pipeline as documents.
+    chat_run = request(
+        f"/api/threads/{thread['id']}/messages",
+        {
+            "content": "Decision[session-policy]: SessionPolicyAlpha uses pgvector for recall.",
+            "idempotency_key": "smoke-memory-turn",
+            "tools": [],
+        },
+    )
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        chat_snapshot = request(f"/api/runs/{chat_run['id']}")
+        if chat_snapshot["status"] in {"failed", "unknown", "cancelled"}:
+            raise RuntimeError("Conversation run failed")
+        if chat_snapshot["status"] == "succeeded":
+            break
+        time.sleep(0.5)
+    else:
+        raise RuntimeError("Conversation run did not finish")
+    distilled = request(f"/api/threads/{thread['id']}/memory/distill", {})
+    finished_job(distilled["id"])
+    proposals = request(path + "/memory/candidates")
+    chat_candidate = next(c for c in proposals if c["title"] == "session-policy")
+    if chat_candidate["status"] != "pending":
+        raise RuntimeError("Automatically distilled memory bypassed review")
+    accepted = request(f"/api/memory/candidates/{chat_candidate['id']}/apply", {})
+    applied = finished_job(accepted["job_id"])
+    if applied["result"]["status"] != "applied":
+        raise RuntimeError("Chat-derived memory was not accepted")
+    accepted_node = request(f"/api/memory/{applied['result']['node_id']}")
+    if "SessionPolicyAlpha" not in accepted_node["content"]:
+        raise RuntimeError("Chat-derived fact did not round-trip")
     print(
         json.dumps(
             {
@@ -165,6 +209,8 @@ def main():
                 "embedding_model": search["embedding_model"],
                 "candidate_id": candidate["id"],
                 "history_revisions": len(versions),
+                "distillation_job_id": distilled["id"],
+                "chat_memory_uri": accepted_node["uri"],
             },
             indent=2,
         )

@@ -95,7 +95,7 @@ def test_project_evidence_reaches_model_and_run_is_idempotent(backend):
     root = next(e for e in spans if e["name"] == "run")
     assert root["parent_id"] is None
     assert all(s["parent_id"] in {r["span_id"] for r in spans} for s in spans if s["name"] != "run")
-    assert any(s["name"] == "retrieval_l0_directories" for s in spans)
+    assert any(s["name"] == "retrieval_l2_leaves" for s in spans)
     assert all(s["duration_ms"] >= 0 for s in spans)
     with client.stream("GET", f"/api/runs/{rid}/events/stream") as stream:
         body = "".join(stream.iter_text())

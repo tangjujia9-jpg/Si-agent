@@ -25,6 +25,8 @@ class MemoryQuery:
     include_details: bool = True
     max_tokens: int = 3000
     as_of: datetime | None = None
+    strategy: str = "flat"
+    kinds: tuple[str, ...] = ("resource", "semantic", "episodic", "procedural")
 
     def __post_init__(self) -> None:
         if not self.text.strip():
@@ -39,6 +41,13 @@ class MemoryQuery:
             raise ValueError("tiers must contain l0, l1 or l2")
         if self.as_of is not None and self.as_of.tzinfo is None:
             raise ValueError("as_of must include a timezone")
+        if self.strategy not in {"flat", "hierarchical"}:
+            raise ValueError("unknown retrieval strategy")
+        if not self.kinds or any(
+            k not in {"resource", "semantic", "episodic", "procedural", "session"}
+            for k in self.kinds
+        ):
+            raise ValueError("invalid memory kinds")
 
 
 @dataclass(frozen=True)

@@ -72,6 +72,7 @@ SQLite 测试通过 `Base.metadata.create_all` 创建独立临时数据库；正
 | `GET /api/memory/search` | 查询词、项目、层级、预算与有效时间检索 |
 | `GET /api/memory/{node_id}` | 读取原文、URI、来源事件与 revision |
 | `POST /api/threads` | 创建会话记录 |
+| `POST /api/threads/{id}/memory/distill` | 将该会话当前增量立即排队蒸馏，返回 job |
 | `POST /api/threads/{id}/messages` | 幂等排队 Agent 运行，返回 202 |
 | `GET /api/runs/{id}`、`GET /api/runs/{id}/events` | 查询运行状态、预算、工具和持久化事件 |
 | `GET /api/runs/{id}/events/stream` | 按序号重放 SSE，暂停或结束时返回快照 |
@@ -109,6 +110,7 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 | `0003_si_namespace` | 将节点 URI、父目录 URI 与导入结果根 URI 改为 `si://` |
 | `0004_memory_lifecycle` | 分块索引、历史/证据/候选/tombstone，并为旧项目排队 rebuild |
 | `0005_runtime` | 暂停/unknown 状态、有序运行事件、工具操作与 outbox |
+| `0006_unified_memory` | 消息序号、水位、摘要表示版本和派生记忆重审标记 |
 
 第三个迁移保留原文、节点 ID、来源事件、revision 与向量。URI 碰撞会让事务失败，
 不会覆盖已有节点。旧 URI 的客户端书签需要更新；原写入请求的 payload hash
@@ -133,3 +135,6 @@ Judge 与付费 embedding 质量评测不在此离线流程内。
 enrich/consolidate/rebuild 流程见[第四周报告](copilot-week4-release.md)。升级后执行
 `alembic upgrade head` 并启动新 Worker，迁移会为既有项目排队分块重建；
 等待任务完成后再验收向量覆盖。不要用 `create_all` 替代已有库的结构迁移。
+
+统一阶段的接口默认值、会话来源与审核流程见[统一记忆报告](copilot-unified-memory-release.md)。
+升级前先停止旧 API 与 Worker，再执行迁移；旧代码不能与新的版本规则混用。

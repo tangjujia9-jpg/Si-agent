@@ -12,6 +12,7 @@ from sqlalchemy import select
 from waku.runtime.runner import TERMINAL, append_event, approve_operation, enqueue_run
 from waku.server.schemas import ApprovalInput, RunInput, RunOutput
 from waku.storage.models import Job, Message, Project, Run, RunEvent, Thread, ToolOperation
+from waku.workers.distillation import append_message, enqueue_distillation
 
 
 def run_routes(sessions, user_id):
@@ -39,8 +40,18 @@ def run_routes(sessions, user_id):
         ).hexdigest()
         with sessions.begin() as session:
             thread = scoped(session, Thread, thread_id)
+            # Match workers' project -> thread lock order and refresh counters
+            # after waiting; the identity map may contain a pre-lock snapshot.
+            session.execute(
+                select(Project).where(Project.id == thread.project_id).with_for_update()
+            )
             # Thread lock prevents overlapping turns from observing inconsistent history.
-            session.execute(select(Thread).where(Thread.id == thread_id).with_for_update())
+            thread = session.scalar(
+                select(Thread)
+                .where(Thread.id == thread_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
             key = "run:" + thread_id + ":" + payload.idempotency_key
             job = session.scalar(
                 select(Job).where(Job.project_id == thread.project_id, Job.idempotency_key == key)
@@ -99,15 +110,14 @@ def run_routes(sessions, user_id):
             )
             session.add(run)
             session.flush()
-            session.add(
-                Message(
-                    project_id=thread.project_id,
-                    thread_id=thread_id,
-                    role="user",
-                    content=payload.content,
-                    event_data={"run_id": run.id},
-                )
+            append_message(
+                session,
+                thread,
+                role="user",
+                content=payload.content,
+                event_data={"run_id": run.id},
             )
+            enqueue_distillation(session, thread)
             job = enqueue_run(session, run, key)
             job.payload_hash = digest
             append_event(session, run, "run_queued", {"run_id": run.id})

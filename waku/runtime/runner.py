@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
-from waku.domain.contracts import Budget, RunContext, ToolResult
+from waku.domain.contracts import Budget, MemoryHit, RunContext, ToolResult
 from waku.memory.context import compile_context
 from waku.memory.port import MemoryQuery
 from waku.providers.adapters import configured_provider, estimated_size
@@ -19,11 +19,11 @@ from waku.storage.models import (
     ContextNode,
     Job,
     MemoryEvidence,
-    Message,
     OutboxEvent,
     Project,
     Run,
     RunEvent,
+    Thread,
     ToolOperation,
     now,
 )
@@ -60,6 +60,7 @@ def validate_sources(session, run, state):
             not source
             or source.project_id != run.project_id
             or source.status != "active"
+            or source.needs_review
             or source.revision != ref["revision"]
         ):
             raise ValueError("source_evidence_changed")
@@ -71,6 +72,7 @@ def validate_sources(session, run, state):
             or node.project_id != run.project_id
             or evidence.redacted
             or node.status != "active"
+            or node.needs_review
             or node.revision != evidence.revision
         ):
             raise ValueError("source_evidence_changed")
@@ -179,6 +181,7 @@ class Runtime:
             decisions or LocalDecisions(),
             exporter,
         )
+        self.executor.decisions = self.decisions
 
     def _locked(self, session, run_id, job_id, token):
         identity = session.get(Job, job_id)
@@ -353,67 +356,74 @@ class Runtime:
             remaining = context.budget.max_tokens - state["charged_tokens"]
             if remaining <= 0:
                 raise ValueError("token_budget")
-            query = state["query"]
-            evidence = ""
-            decision_state = {"text": query, "recent": state["messages"][-4:]}
-            if getattr(self.decisions, "model", None):
-                self._reserve(
-                    rid,
-                    job_id,
-                    token,
-                    state,
-                    len(json.dumps(decision_state, ensure_ascii=False).encode()) + 512,
-                    ("decision_start", {"source": "jev"}),
-                )
-            with trace.span("retrieval_gate") as (_, attrs):
+            if state.get("retrieval_cache") is None:
+                query = state["query"]
+                hits = []
+                evidence = ""
+                decision_state = {"text": query, "recent": state["messages"][-4:]}
                 if getattr(self.decisions, "model", None):
-                    attrs["model"] = self.decisions.model
-                decision = safe_decision(self.decisions, "retrieve", decision_state)
-                attrs.update(
-                    asdict(decision.usage),
-                    source=decision.source,
-                    probability=decision.probability,
-                    confidence=decision.confidence,
-                    reason=decision.reason,
-                )
-            if decision.value:
-                if getattr(
-                    self.memory, "embedder", None
-                ) and not self.memory.embedder.model_id.startswith("demo:"):
                     self._reserve(
                         rid,
                         job_id,
                         token,
                         state,
-                        len(query.encode()) + 128,
-                        ("embedding_start", {"model": self.memory.embedder.model_id}),
+                        len(json.dumps(decision_state, ensure_ascii=False).encode()) + 512,
+                        ("decision_start", {"source": "jev"}),
                     )
-                self._save(
-                    rid, job_id, token, state, event=("memory_search", {"project_id": project})
-                )
-                with trace.span("memory_search") as (_, attrs):
-                    hits = list(
-                        self.memory.search(
-                            MemoryQuery(
-                                text=query,
-                                user_id=context.user_id,
-                                project_id=project,
-                                max_tokens=min(3000, max(1, remaining // 3)),
+                with trace.span("retrieval_gate") as (_, attrs):
+                    if getattr(self.decisions, "model", None):
+                        attrs["model"] = self.decisions.model
+                    decision = safe_decision(self.decisions, "retrieve", decision_state)
+                    attrs.update(
+                        asdict(decision.usage),
+                        source=decision.source,
+                        probability=decision.probability,
+                        confidence=decision.confidence,
+                        reason=decision.reason,
+                    )
+                if decision.value:
+                    if getattr(
+                        self.memory, "embedder", None
+                    ) and not self.memory.embedder.model_id.startswith("demo:"):
+                        self._reserve(
+                            rid,
+                            job_id,
+                            token,
+                            state,
+                            len(query.encode()) + 128,
+                            ("embedding_start", {"model": self.memory.embedder.model_id}),
+                        )
+                    self._save(
+                        rid, job_id, token, state, event=("memory_search", {"project_id": project})
+                    )
+                    with trace.span("memory_search") as (_, attrs):
+                        hits = list(
+                            self.memory.search(
+                                MemoryQuery(
+                                    text=query,
+                                    user_id=context.user_id,
+                                    project_id=project,
+                                    max_tokens=min(3000, max(1, remaining // 3)),
+                                )
                             )
                         )
+                        attrs["count"] = len(hits)
+                    evidence = compile_context(hits, min(3000, max(1, remaining // 3))).text
+                    for hit in hits:
+                        ref = {"id": hit.id, "revision": hit.revision}
+                        if ref not in state.setdefault("source_nodes", []):
+                            state["source_nodes"].append(ref)
+                    state["evidence_ids"] = list(
+                        set(state.get("evidence_ids", []))
+                        | {eid for h in hits for eid in h.evidence_ids}
                     )
-                    attrs["count"] = len(hits)
-                evidence = compile_context(hits, min(3000, max(1, remaining // 3))).text
-                for hit in hits:
-                    ref = {"id": hit.id, "revision": hit.revision}
-                    if ref not in state.setdefault("source_nodes", []):
-                        state["source_nodes"].append(ref)
-                state["evidence_ids"] = list(
-                    set(state.get("evidence_ids", []))
-                    | {eid for h in hits for eid in h.evidence_ids}
-                )
+                else:
+                    state.setdefault("evidence_ids", [])
+                state["retrieval_cache"] = {"hits": [asdict(hit) for hit in hits]}
+                self._save(rid, job_id, token, state)
             else:
-                state.setdefault("evidence_ids", [])
+                hits = [MemoryHit(**hit) for hit in state["retrieval_cache"]["hits"]]
+                evidence = compile_context(hits, min(3000, max(1, remaining // 3))).text
             request = ModelRequest(
                 messages=json_value(state["messages"]),
                 system=SYSTEM + "\nEvidence:\n" + evidence,
@@ -505,18 +515,21 @@ class Runtime:
                     if run.status == "cancelled":
                         return "cancelled"
                     validate_sources(session, run, state)
-                    session.add(
-                        Message(
-                            project_id=project,
-                            thread_id=tid,
-                            role="assistant",
-                            content=response.text,
-                            event_data={
-                                "run_id": rid,
-                                "evidence_ids": state["evidence_ids"],
-                                "source_nodes": state.get("source_nodes", []),
-                            },
-                        )
+                    from waku.workers.distillation import append_message
+
+                    thread = session.scalar(
+                        select(Thread).where(Thread.id == tid).with_for_update()
+                    )
+                    append_message(
+                        session,
+                        thread,
+                        role="assistant",
+                        content=response.text,
+                        event_data={
+                            "run_id": rid,
+                            "evidence_ids": state["evidence_ids"],
+                            "source_nodes": state.get("source_nodes", []),
+                        },
                     )
                     run.context = json_value(state)
                 return "succeeded"

@@ -15,7 +15,7 @@ def refresh_indexes(session, project_id: str) -> None:
     """Update previews/lexical indexes in the same transaction as document writes."""
     session.flush()
     nodes = list(session.scalars(select(ContextNode).where(ContextNode.project_id == project_id)))
-    active = [n for n in nodes if n.status == "active"]
+    active = [n for n in nodes if n.status == "active" and not n.needs_review]
     for directory in sorted(
         (n for n in active if n.kind == "directory"), key=lambda n: -len(n.uri)
     ):
@@ -25,7 +25,7 @@ def refresh_indexes(session, project_id: str) -> None:
         abstract, overview = abstract[:600], overview[:6000]
         if (directory.abstract, directory.overview) != (abstract, overview):
             directory.abstract, directory.overview = abstract, overview
-            directory.revision += 1
+            directory.representation_revision += 1
     existing = {
         (row.node_id, row.tier, row.position): row
         for row in session.scalars(
@@ -52,9 +52,14 @@ def refresh_indexes(session, project_id: str) -> None:
                     node_id=node.id, tier=tier, position=position, revision=node.revision, body=body
                 )
                 session.add(row)
-            elif row.revision == node.revision and row.body == body:
+            elif (
+                row.revision == node.revision
+                and row.representation_revision == node.representation_revision
+                and row.body == body
+            ):
                 continue
             row.revision, row.body = node.revision, body
+            row.representation_revision = node.representation_revision
             row.start_char, row.end_char = start, end
             row.embedding, row.embedding_model = None, None
             tokens = " ".join(terms(f"{node.title} {body}"))
@@ -95,11 +100,19 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
             .where(
                 ContextNode.project_id == job.project_id,
                 ContextNode.status == "active",
+                ContextNode.needs_review.is_(False),
                 ContextIndex.revision == ContextNode.revision,
+                ContextIndex.representation_revision == ContextNode.representation_revision,
             )
         ).all()
         snapshot = [
-            (row.id, row.revision, row.body, f"{title}\n{row.body}"[:6000])
+            (
+                row.id,
+                row.revision,
+                row.representation_revision,
+                row.body,
+                f"{title}\n{row.body}"[:6000],
+            )
             for row, title in rows
             if embedder and row.embedding_model != embedder.model_id
         ]
@@ -121,7 +134,7 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
                 return False
             owned.lease_until = now() + timedelta(seconds=60)
         batch = snapshot[offset : offset + 16]
-        vectors.extend(validate_vectors(embedder.embed([r[3] for r in batch]), len(batch)))
+        vectors.extend(validate_vectors(embedder.embed([r[4] for r in batch]), len(batch)))
     with sessions.begin() as session:
         session.execute(select(Project).where(Project.id == project_id).with_for_update())
         job = session.scalar(
@@ -138,7 +151,9 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
         applied = 0
         # Project writes/forget use the same lock, so a snapshot cannot be
         # committed between a deletion and its lexical-index refresh.
-        for (row_id, revision, body, _), vector in zip(snapshot, vectors, strict=True):
+        for (row_id, revision, representation, body, _), vector in zip(
+            snapshot, vectors, strict=True
+        ):
             row = session.scalar(
                 select(ContextIndex).where(ContextIndex.id == row_id).with_for_update()
             )
@@ -147,8 +162,11 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
                 row
                 and node
                 and node.status == "active"
+                and not node.needs_review
                 and node.revision == revision
                 and row.revision == revision
+                and node.representation_revision == representation
+                and row.representation_revision == representation
                 and row.body == body
             ):
                 row.embedding, row.embedding_model = vector, embedder.model_id

@@ -8,6 +8,7 @@
 |---|---|---|
 | 第四周 | 已实现分块、可选模型摘要/抽取、candidate/evidence/version、冲突、tombstone | 验证边界见[第四周报告](copilot-week4-release.md) |
 | 第五周 | 已实现新记忆接入 Loop、Provider、工具校验、operation/outbox、可选 LangGraph、Jev、Langfuse | 边界见[第五周报告](copilot-week5-release.md) |
+| 统一阶段 | 已接通会话候选、统一留存、Run 检索复用和来源失效；继续补迁移与显式用户修正 | 见[统一记忆报告](copilot-unified-memory-release.md) |
 | 第六周 | Chat/token delta、审批 UI、记忆检查台、Run Trace、模型配置、会话沉淀接线 | 回答可打开来源与运行轨迹 |
 | 第七周 | FTS5/hybrid 与外部适配器对比、检索与 Agent 指标、Eval Lab | 可重复评测质量、泄漏、过期、成本和延迟 |
 | 第八周 | README、演示、CI、恢复、安全与许可审查、基准报告 | 面试官十分钟内复现闭环 |
@@ -19,7 +20,7 @@ Langfuse 通过可选适配器提供存储与查询；未启用时产品仍可�
 
 - 每次运行有根 trace，关联用户、项目、会话、run 和模型。
 - span 包围真实操作，记录异常、重试、取消和超时。
-- 检索阶段包含 scope/gate、query embedding、L0/L1、两路召回、融合、L2 与预算。
+- 检索阶段包含 scope/gate、query embedding、两路召回、融合、表示层级与预算。
 - 导入和索引关联 job、node、revision 和 evidence ID。
 - 摘要、consolidation、judge 等 Loop 外调用也统计 usage 与成本。
 - 工具记录结构化状态与 operation ID，区分估算和实际收费。

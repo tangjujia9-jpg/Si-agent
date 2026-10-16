@@ -458,18 +458,24 @@ def test_populated_week3_migration_preserves_source_and_refuses_forget_downgrade
     migrate("0003_si_namespace", downgrade=True)
     pid = project(client)
     with sessions.begin() as session:
-        node = ContextNode(
-            project_id=pid,
-            uri=f"si://users/default/projects/{pid}/resources/legacy.md",
-            title="Legacy",
-            kind="resource",
-            content="Preserved source",
-            abstract="Old summary",
-            overview="Preserved source",
+        from uuid import uuid4
+
+        node_id = str(uuid4())
+        # Historical fixtures must use the historical schema, not today's ORM.
+        session.execute(
+            text("""
+                INSERT INTO context_nodes
+                  (id,created_at,project_id,uri,title,kind,content,abstract,overview,
+                   revision,source_event_ids,status)
+                VALUES (:id,CURRENT_TIMESTAMP,:pid,:uri,'Legacy','resource',
+                        'Preserved source','Old summary','Preserved source',1,'[]','active')
+            """),
+            {
+                "id": node_id,
+                "pid": pid,
+                "uri": f"si://users/default/projects/{pid}/resources/legacy.md",
+            },
         )
-        session.add(node)
-        session.flush()
-        node_id = node.id
         session.execute(
             text(
                 "INSERT INTO context_indexes(id,created_at,node_id,tier,revision,body) VALUES (:id,CURRENT_TIMESTAMP,:node,'l2',1,'Preserved source')"

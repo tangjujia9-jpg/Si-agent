@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from waku.memory.indexing import enqueue_index, refresh_indexes
-from waku.memory.lifecycle import blocked, record_version
+from waku.memory.lifecycle import blocked, invalidate_dependents, record_version
 from waku.storage.models import ContextNode, Job, Project
 
 
@@ -72,6 +72,7 @@ def import_documents(session: Session, job: Job) -> dict:
             nodes[uri] = node
         else:
             record_version(session, node)
+            invalidate_dependents(session, node)
             node.revision += 1
         node.content = content
         node.abstract = next(

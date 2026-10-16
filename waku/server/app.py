@@ -13,11 +13,10 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from waku.memory.candidates import queue_candidate, submit_candidate
 from waku.memory.embeddings import configured_embedder
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.port import MemoryQuery
-from waku.memory.postgres import PostgresMemory
+from waku.memory.service import MemoryService
 from waku.server.runs import run_routes
 from waku.server.schemas import (
     CandidateInput,
@@ -65,7 +64,7 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         )
     )
     sessions = session_factory(database)
-    memory_store = PostgresMemory(sessions, embedder or configured_embedder())
+    memory_store = MemoryService(sessions, embedder or configured_embedder())
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -206,6 +205,8 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
                 tiers=tuple(payload.tiers.split(",")),
                 include_details=payload.include_details,
                 as_of=payload.as_of,
+                strategy=payload.strategy,
+                kinds=tuple(payload.kinds.split(",")),
             )
         )
         return {
@@ -302,7 +303,9 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         status_code=202,
     )
     def propose(project_id: str, payload: CandidateInput, session: Session = dependency):
-        return submit_candidate(session, project_or_404(session, project_id), payload.model_dump())
+        return memory_store.submit_in_session(
+            session, project_or_404(session, project_id), payload.model_dump(), accepted=True
+        )
 
     @app.post(
         "/api/memory/candidates/{candidate_id}/apply",
@@ -315,8 +318,24 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
             raise HTTPException(404, "Candidate not found")
         project_or_404(session, candidate.project_id)
         session.execute(select(Project).where(Project.id == candidate.project_id).with_for_update())
-        queue_candidate(session, candidate)
-        return candidate
+        return memory_store.accept_in_session(session, candidate)
+
+    @app.post("/api/threads/{thread_id}/memory/distill", response_model=JobOutput, status_code=202)
+    def distill_thread(thread_id: str, session: Session = dependency):
+        from waku.workers.distillation import enqueue_distillation
+
+        thread = session.get(Thread, thread_id)
+        if thread is None:
+            raise HTTPException(404, "Thread not found")
+        project_or_404(session, thread.project_id)
+        session.execute(select(Project).where(Project.id == thread.project_id).with_for_update())
+        thread = session.scalar(
+            select(Thread)
+            .where(Thread.id == thread_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return enqueue_distillation(session, thread, delay_seconds=0)
 
     app.include_router(run_routes(sessions, USER_ID))
     return app

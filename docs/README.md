@@ -33,6 +33,8 @@ into four groups.
 | [copilot-backend.md](copilot-backend.md) | 中文后端手册：API、PostgreSQL、Worker、迁移与 Docker |
 | [copilot-week2-release.md](copilot-week2-release.md) | 第二周中文验收报告：变化、验证与限制 |
 | [copilot-memory.md](copilot-memory.md) | 中文记忆设计：分层表示、embedding、混合检索与引用 |
+| [si-unified-memory-design.md](si-unified-memory-design.md) | 统一记忆目标设计：目录、会话蒸馏、检索门、Jev、冲突与迁移 |
+| [copilot-unified-memory-release.md](copilot-unified-memory-release.md) | 统一阶段验收：检索复用、会话候选、表示版本、依赖失效与限制 |
 | [copilot-week3-release.md](copilot-week3-release.md) | 第三周中文验收报告：已实现链路与验收边界 |
 | [copilot-week4-release.md](copilot-week4-release.md) | 第四周中文验收：分块、候选、证据、历史版本、冲突与忘记 |
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |

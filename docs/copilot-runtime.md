@@ -15,14 +15,16 @@ API 将用户消息与运行任务一起提交；Worker 驱动运行。每次模
 
 ## 上下文与模型
 
-运行先通过检索门，再召回当前项目有效证据。Context Compiler 将引用和上下文视为
+运行在首次需要模型输入时通过检索门，再召回当前项目有效证据。
+同一 Run 将初始命中保存到检查点，后续模型迭代和审批恢复复用命中；明确搜索工具仍可追加查询。
+缓存证据在每次外部调用前检查来源，失效时安全停止，不继续使用旧事实。Context Compiler 将引用和上下文视为
 不可信资料，限制上下文预算。所有模型使用可序列化消息，Provider 转换各自协议，
 不传递 SDK 专用对象。首版提供 OpenAI、Anthropic、OpenAI-compatible 和离线 demo。
 
 ## Jev 决策边界
 
 TypeSafe Jev 返回分类、概率和置信度，不能负责生成摘要、查询改写或事实文本。
-本轮接入检索门和 enrich 后的长期留存筛选；相关性评分协议保留，尚未启用重排。低置信度或服务错误时
+统一阶段已接入检索门、enrich/会话候选与 propose_memory 工具的长期留存筛选；相关性评分协议保留，尚未启用重排。低置信度或服务错误时
 检索门保守召回，候选保持待审。Jev 不绕过项目隔离、证据校验、版本冲突和删除屏障。
 缺少密钥时默认本地规则，不触发外部决策服务。真实质量和阈值需要第七周数据集验证。
 
@@ -104,3 +106,5 @@ span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
 参考资料：[Jev/System One](https://typesafe.ai/blog/introducing-system-one-models-and-jev)、
 [TypeSafe SDK](https://github.com/typesafe-ai/typesafe-sdk-python)。真实决策质量与阈值需要独立数据集，
 SDK wire-format 测试不能替代质量评测。
+
+统一阶段的会话蒸馏、表示版本与默认检索变更见[统一记忆验收报告](copilot-unified-memory-release.md)。

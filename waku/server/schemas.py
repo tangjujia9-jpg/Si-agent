@@ -101,6 +101,8 @@ class NodeSummary(Output):
     abstract: str
     overview: str
     revision: int
+    representation_revision: int
+    needs_review: bool
     status: str
     source_event_ids: list[str]
 
@@ -124,6 +126,18 @@ class SearchInput(Input):
     include_details: bool = True
     tiers: str = "l0,l1,l2"
     as_of: datetime | None = None
+    strategy: Literal["flat", "hierarchical"] = "flat"
+    kinds: str = "resource,semantic,episodic,procedural"
+
+    @field_validator("kinds")
+    @classmethod
+    def valid_kinds(cls, value):
+        if not value or any(
+            k not in {"resource", "semantic", "episodic", "procedural", "session"}
+            for k in value.split(",")
+        ):
+            raise ValueError("invalid memory kinds")
+        return value
 
     @field_validator("tiers")
     @classmethod

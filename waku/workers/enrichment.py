@@ -4,11 +4,10 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from waku.memory.candidates import extract_decisions, marker_proposals
+from waku.memory.candidates import extract_decisions
 from waku.memory.indexing import enqueue_index, refresh_indexes
-from waku.memory.lifecycle import blocked, record_version
-from waku.runtime.decisions import safe_decision
-from waku.runtime.telemetry import observed
+from waku.memory.lifecycle import blocked
+from waku.memory.service import prepare_proposals
 from waku.storage.models import ContextNode, Job, Project, now
 
 
@@ -19,7 +18,7 @@ def process_enrichment(sessions, job_id, token, summarizer, extractor=None, deci
             return False
         project_id = job.project_id
         snapshots = [
-            (n.id, n.revision, n.content)
+            (n.id, n.revision, n.representation_revision, n.content)
             for n in session.scalars(
                 select(ContextNode).where(
                     ContextNode.project_id == project_id,
@@ -41,41 +40,16 @@ def process_enrichment(sessions, job_id, token, summarizer, extractor=None, deci
                 raise RuntimeError("enrichment lease lost")
             job.lease_until = now() + timedelta(seconds=60)
 
-    def proposals_for(content):
-        proposals = (
-            extractor.extract(content, heartbeat) if extractor else marker_proposals(content)
-        )[:100]
-        if decisions:
-            for proposal in proposals:
-                heartbeat()
-                with observed("retention_gate") as (_, attrs):
-                    if getattr(decisions, "model", None):
-                        attrs["model"] = decisions.model
-                    decision = safe_decision(
-                        decisions,
-                        "retain",
-                        {"text": proposal["content"], "source": proposal["quote"]},
-                    )
-                    attrs.update(
-                        source=decision.source,
-                        probability=decision.probability,
-                        confidence=decision.confidence,
-                        input_tokens=decision.usage.input_tokens,
-                        output_tokens=decision.usage.output_tokens,
-                        total_tokens=decision.usage.total_tokens,
-                    )
-                proposal["retention_decision"] = decision
-        return proposals
-
     prepared = [
         (
             node_id,
             revision,
+            representation,
             content,
             summarizer.summarize(content, heartbeat),
-            proposals_for(content),
+            prepare_proposals(content, extractor, decisions, heartbeat),
         )
-        for node_id, revision, content in snapshots
+        for node_id, revision, representation, content in snapshots
     ]
     with sessions.begin() as session:
         session.execute(select(Project).where(Project.id == project_id).with_for_update())
@@ -87,19 +61,20 @@ def process_enrichment(sessions, job_id, token, summarizer, extractor=None, deci
         if not job:
             return False
         applied = extracted = 0
-        for node_id, revision, content, summary, proposals in prepared:
+        for node_id, revision, representation, content, summary, proposals in prepared:
             node = session.get(ContextNode, node_id)
             if (
                 not node
                 or node.status != "active"
                 or node.revision != revision
+                or node.representation_revision != representation
+                or node.needs_review
                 or node.content != content
                 or blocked(session, project_id, node.uri, content)
             ):
                 continue
             if (node.abstract, node.overview) != (summary["abstract"], summary["overview"]):
-                record_version(session, node)
-                node.revision += 1
+                node.representation_revision += 1
                 node.abstract, node.overview = summary["abstract"], summary["overview"]
             refresh_indexes(session, project_id)
             extracted += extract_decisions(session, node, proposals)

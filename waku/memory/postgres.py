@@ -18,7 +18,7 @@ from waku.domain.contracts import MemoryHit, MemoryNode
 from waku.memory.context import CompiledContext, compile_context
 from waku.memory.embeddings import Embedder, terms, validate_vectors
 from waku.memory.indexing import enqueue_index, refresh_indexes
-from waku.memory.lifecycle import blocked, forget_node, record_version
+from waku.memory.lifecycle import blocked, forget_node, invalidate_dependents, record_version
 from waku.memory.port import MemoryQuery, MemoryWrite, MemoryWriteReceipt
 from waku.runtime.telemetry import observed
 from waku.storage.models import (
@@ -75,7 +75,13 @@ def domain_node(node: ContextNode, user_id: str) -> MemoryNode:
         valid_to=node.valid_to,
         status=node.status,
         supersedes_id=node.supersedes_id,
-        metadata={"id": node.id, "revision": node.revision, "parent_uri": node.parent_uri},
+        metadata={
+            "id": node.id,
+            "revision": node.revision,
+            "parent_uri": node.parent_uri,
+            "representation_revision": node.representation_revision,
+            "needs_review": node.needs_review,
+        },
     )
 
 
@@ -215,6 +221,7 @@ class PostgresMemory:
             session.add(stored)
         else:
             record_version(session, stored)
+            invalidate_dependents(session, stored)
             stored.revision += 1
         if node.supersedes_id:
             old = session.get(ContextNode, node.supersedes_id)
@@ -223,6 +230,7 @@ class PostgresMemory:
             if blocked(session, project.id, old.uri, old.content):
                 raise ValueError("cannot supersede forgotten memory")
             record_version(session, old)
+            invalidate_dependents(session, old)
             old.status = "superseded"
             old.revision += 1
             record_version(session, old)
@@ -242,6 +250,7 @@ class PostgresMemory:
         stored.source_event_ids = list(
             dict.fromkeys((*node.source_event_ids, *request.evidence_ids))
         )
+        stored.needs_review = False
         stored.abstract = (
             stored.abstract
             or next(
@@ -333,7 +342,9 @@ class PostgresMemory:
                 .where(
                     ContextNode.project_id == project.id,
                     ContextNode.status == "active",
+                    ContextNode.needs_review.is_(False),
                     ContextIndex.revision == ContextNode.revision,
+                    ContextIndex.representation_revision == ContextNode.representation_revision,
                     or_(ContextNode.valid_from.is_(None), ContextNode.valid_from <= at),
                     or_(ContextNode.valid_to.is_(None), ContextNode.valid_to > at),
                 )
@@ -364,6 +375,8 @@ class PostgresMemory:
                     if directories
                     else ContextNode.kind != "directory"
                 )
+                if not directories:
+                    statement = statement.where(ContextNode.kind.in_(query.kinds))
                 if parents is not None:
                     if not parents:
                         return []
@@ -441,17 +454,19 @@ class PostgresMemory:
                     attrs["count"] = len(out)
                     return out
 
-            l0 = ranked("l0", directories=True)[:6]
-            l1 = ranked("l1", directories=True, parents={n.uri for _, _, n in l0})[:6]
-            if not l1:
-                l1 = ranked("l1", directories=True)[:6]
-            parents = {n.uri for _, _, n in (*l0, *l1)}
+            parents = None
+            if query.strategy == "hierarchical":
+                l0 = ranked("l0", directories=True)[:6]
+                l1 = ranked("l1", directories=True, parents={n.uri for _, _, n in l0})[:6]
+                if not l1:
+                    l1 = ranked("l1", directories=True)[:6]
+                parents = {n.uri for _, _, n in (*l0, *l1)}
             tiers = [t for t in query.tiers if query.include_details or t != "l2"]
             best = {}
             for tier in tiers:
                 # Directory routing prioritizes a branch. Global rescue prevents
                 # a truncated overview from hiding relevant detail elsewhere.
-                branch = ranked(tier, parents=parents)
+                branch = ranked(tier, parents=parents) if parents is not None else []
                 rescue = ranked(tier)
                 branch_ids = {r.id for _, r, _ in branch}
                 for score, row, node in rescue:

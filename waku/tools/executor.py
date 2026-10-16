@@ -111,7 +111,7 @@ def project_executor(memory, sessions):
 
         validate_uri(args["uri"], context.user_id, context.project_id)
         node = memory.get(args["uri"], user_id=context.user_id)
-        if node is None or node.status != "active":
+        if node is None or node.status != "active" or node.metadata.get("needs_review"):
             raise ValueError("node not active")
         from sqlalchemy import select
 
@@ -137,33 +137,24 @@ def project_executor(memory, sessions):
         }
 
     def propose(args, context, operation_id):
-        from waku.memory.candidates import submit_candidate
-        from waku.storage.models import Project
+        from waku.memory.service import MemoryService
 
-        with sessions.begin() as session:
-            project = session.get(Project, context.project_id)
-            if project is None or project.user_id != context.user_id:
-                raise ValueError("invalid scope")
-            candidate = submit_candidate(
-                session,
-                project,
-                dict(
-                    **args,
-                    action="ADD",
-                    kind="semantic",
-                    expected_revision=None,
-                    supersedes_id=None,
-                    idempotency_key="tool:" + operation_id,
-                ),
-                queue=False,
-            )
-            return {
-                "candidate_id": candidate.id,
-                "status": candidate.status,
-                "message": "Proposal saved for review; not applied as accepted memory",
-            }
+        service = memory if isinstance(memory, MemoryService) else MemoryService(sessions)
+        return service.propose(
+            dict(
+                **args,
+                action="ADD",
+                kind="semantic",
+                expected_revision=None,
+                supersedes_id=None,
+                idempotency_key="tool:" + operation_id,
+            ),
+            user_id=context.user_id,
+            project_id=context.project_id,
+            decisions=getattr(executor, "decisions", None),
+        )
 
-    return Executor(
+    executor = Executor(
         [
             ToolSpec("search_memory", "Find cited evidence in this project", SearchArgs, search),
             ToolSpec("read_memory", "Read an active si:// source in this project", ReadArgs, read),
@@ -177,3 +168,5 @@ def project_executor(memory, sessions):
             ),
         ]
     )
+
+    return executor

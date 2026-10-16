@@ -78,7 +78,9 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
             )
             .order_by(
                 case(
-                    (Job.kind == "ingest", 0),
+                    (Job.kind == "run", -2),
+                    (Job.kind == "tool_outbox", -2),
+                    (Job.kind == "ingest", -3),
                     (Job.kind == "rebuild", 0),
                     (Job.kind == "consolidate", 1),
                     (Job.kind == "index", 2),
@@ -118,11 +120,11 @@ def _process(
             project_id = job.project_id if job else None
         if runtime_kind:
             if runtime is None:
-                from waku.memory.postgres import PostgresMemory
+                from waku.memory.service import MemoryService
                 from waku.runtime.runner import Runtime
                 from waku.tools.executor import project_executor
 
-                memory = PostgresMemory(sessions, embedder)
+                memory = MemoryService(sessions, embedder)
                 runtime = Runtime(sessions, memory, project_executor(memory, sessions))
             return (runtime.process if runtime_kind == "run" else runtime.process_operation)(
                 job_id, token
@@ -137,6 +139,14 @@ def _process(
                 summarizer or ExtractiveSummarizer(),
                 extractor,
                 runtime.decisions if runtime else None,
+            )
+        with sessions() as session:
+            is_distill = session.get(Job, job_id).kind == "distill"
+        if is_distill:
+            from waku.workers.distillation import process_distillation
+
+            return process_distillation(
+                sessions, job_id, token, extractor, runtime.decisions if runtime else None
             )
         with sessions.begin() as session:
             session.execute(select(Project).where(Project.id == project_id).with_for_update())
@@ -230,13 +240,13 @@ def main():
     embedder = configured_embedder()
     summarizer = configured_summarizer()
     extractor = configured_extractor()
-    from waku.memory.postgres import PostgresMemory
+    from waku.memory.service import MemoryService
     from waku.runtime.decisions import configured_decisions
     from waku.runtime.runner import Runtime
     from waku.runtime.telemetry import configured_exporter
     from waku.tools.executor import project_executor
 
-    memory = PostgresMemory(sessions, embedder)
+    memory = MemoryService(sessions, embedder)
     exporter = configured_exporter()
     runtime = Runtime(
         sessions,
