@@ -113,7 +113,20 @@ python scripts/smoke_console.py
 本机浏览器使用独立临时 SQLite 测试库，不代替 CI 中 PostgreSQL/pgvector 的验证。
 后端相关模块及规则文档回归通过 115 项，86 项因 PostgreSQL 或可选条件跳过。
 前端 9 项测试、TypeScript 检查、Vite 生产构建与 Ruff 均通过。
-最终测试数量及远程 CI 链接将在实现提交验证后补充。
+
+GitHub 对实现提交 `d654365` 的[完整 CI 验证](https://github.com/tangjujia9-jpg/Si-agent/actions/runs/39001321777)已通过：
+
+| 检查 | 结果 |
+|---|---|
+| 全量确定性回归，包含真实 PostgreSQL/pgvector | 2624 项通过，66 项因可选运行条件跳过 |
+| 前端测试 | 3 个测试文件、9 项测试通过 |
+| 静态检查与构建 | Ruff、TypeScript、Vite 生产构建通过 |
+| Docker Compose | 数据库、API、Worker、Web 启动与后端 smoke 通过 |
+| 浏览器完整闭环 | Chromium 完成导入、审核、纠错、跨会话引用、刷新恢复、轨迹与忘记操作 |
+| 响应式布局 | 桌面和 390px 手机宽度验证通过，未检测到页面脚本错误 |
+
+同一 CI 页面提供 `si-console-screenshots` 产物，保存四张浏览器验收截图。
+这些结果验证离线演示链路及程序边界，不代表真实模型或外部观测服务的质量验收。
 
 ## 保留的边界
 
