@@ -42,6 +42,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose -f infra/compose.yaml up -d --build
       - run: python scripts/smoke_copilot.py
+      - run: pip install playwright==1.55.0
+      - run: python -m playwright install --with-deps chromium
+      - run: python scripts/smoke_console.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: si-console-screenshots
+          path: .artifacts/console
       - if: failure()
         run: docker compose -f infra/compose.yaml logs --no-color
       - if: always()

@@ -206,7 +206,7 @@ class DemoProvider:
     def complete(self, model, request):
         import re
 
-        cites = re.findall(r"\[si://[^\]]+\]", request.system)
+        cites = re.findall(r"\[si://[^\]]+\]", request.system.partition("\nEvidence:\n")[2])
         answer = "Offline demo. Retrieved project evidence: " + " ".join(dict.fromkeys(cites))
         if not cites:
             answer = "Offline demo. No project evidence was retrieved. Configure a provider for generated answers."

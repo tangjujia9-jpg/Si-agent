@@ -219,6 +219,20 @@ class CandidateOutput(Output):
 
 class ForgetInput(Input):
     reason: str = Field(default="user_request", min_length=1, max_length=240)
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class CorrectionInput(Input):
+    content: str = Field(min_length=1, max_length=4000)
+    expected_revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=1, max_length=80)
+
+    @field_validator("content")
+    @classmethod
+    def no_nul(cls, value):
+        if "\x00" in value:
+            raise ValueError("content cannot contain NUL")
+        return value
 
 
 class VersionOutput(Output):
@@ -246,9 +260,9 @@ class RunInput(Input):
     idempotency_key: str = Field(min_length=1, max_length=100)
     provider: Literal["demo", "openai", "anthropic", "openai-compatible"] = "demo"
     model: str = Field(default="evidence-demo", min_length=1, max_length=160)
-    tools: list[Literal["search_memory", "read_memory", "propose_memory"]] = Field(
-        default_factory=lambda: ["search_memory", "read_memory"], max_length=3
-    )
+    tools: list[
+        Literal["search_memory", "read_memory", "propose_memory", "change_memory", "forget_memory"]
+    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=5)
     max_iterations: int = Field(default=8, ge=1, le=20)
     max_tokens: int = Field(default=16000, ge=1000, le=100000)
     max_tool_calls: int = Field(default=10, ge=0, le=30)

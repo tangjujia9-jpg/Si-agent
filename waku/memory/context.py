@@ -20,6 +20,16 @@ class CompiledContext:
 
 
 def compile_context(hits: list[MemoryHit], max_tokens: int) -> CompiledContext:
+    from waku.runtime.telemetry import observed
+
+    with observed("context_compile", {"count": len(hits)}) as (_, attrs):
+        result = _compile(hits, max_tokens)
+        attrs["count"] = len(result.hits)
+        attrs["estimated"] = True
+        return result
+
+
+def _compile(hits: list[MemoryHit], max_tokens: int) -> CompiledContext:
     from dataclasses import replace
 
     if max_tokens < 1:

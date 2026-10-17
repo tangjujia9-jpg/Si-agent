@@ -9,11 +9,14 @@ from waku.runtime.telemetry import observed
 from waku.storage.models import ContextNode, MemoryEvidence, Project
 
 
-def prepare_proposals(content, extractor, decisions, heartbeat):
+def prepare_proposals(content, extractor, decisions, heartbeat, context=None):
     """Generate grounded proposals and classify retention outside transactions."""
-    proposals = (extractor.extract(content, heartbeat) if extractor else marker_proposals(content))[
-        :100
-    ]
+    if extractor and context and hasattr(extractor, "extract_context"):
+        proposals = extractor.extract_context(content, heartbeat, context)[:100]
+    else:
+        proposals = (
+            extractor.extract(content, heartbeat) if extractor else marker_proposals(content)
+        )[:100]
     for proposal in proposals:
         if (
             proposal.get("kind") not in {"semantic", "episodic", "procedural"}
@@ -66,8 +69,10 @@ class MemoryService:
     def list_children(self, uri, *, user_id="default"):
         return self.repository.list_children(uri, user_id=user_id)
 
-    def forget(self, uri, *, user_id="default", reason="user_request"):
-        return self.repository.forget(uri, user_id=user_id, reason=reason)
+    def forget(self, uri, *, user_id="default", reason="user_request", expected_revision=None):
+        return self.repository.forget(
+            uri, user_id=user_id, reason=reason, expected_revision=expected_revision
+        )
 
     @staticmethod
     def submit_in_session(session, project, payload, *, accepted=False):

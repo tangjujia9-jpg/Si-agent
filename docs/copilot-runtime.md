@@ -85,7 +85,8 @@ API 消息示例：
 `GET /api/runs/{id}/events/stream?after=0`。重连可用已收到的序号作为 after。
 SSE 包含 run_start、memory_search、llm_start/end、tool_start/end、approval_required、
 span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
-审批后重新订阅；活动运行截止时间包含等待用户审批的时间。
+浏览器断线自动使用 Last-Event-ID 续接，手动客户端也可传 after；审批暂停时连接继续发送快照。
+页面刷新从持久化消息与运行记录恢复。活动运行截止时间仍包含等待用户审批的时间。
 
 `GET /api/runs/{id}` 可检查工具入参与结果；
 `POST /api/operations/{id}/approval` 接受 `{"approved": true}` 或 false；
@@ -96,7 +97,7 @@ span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
 | 文件 | 职责 |
 |---|---|
 | `waku/runtime/runner.py` | 自主 Loop、检查点、预算、恢复、审批/outbox 驱动 |
-| `waku/tools/executor.py` | 严格 schema、动态工具与结构化结果 |
+| `waku/tools/executor.py`、`memory_actions.py` | 严格 schema、动态工具、受控记忆变更与结构化结果 |
 | `waku/providers/adapters.py`、`catalog.py` | 模型协议转换、流式适配、后端凭据与能力目录 |
 | `waku/runtime/decisions.py` | 本地规则、Jev、置信度与错误降级 |
 | `waku/runtime/telemetry.py` | 真实调用 span、脱敏、OTLP 与有界导出 |

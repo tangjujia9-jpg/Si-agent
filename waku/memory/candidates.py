@@ -194,6 +194,35 @@ def extract_decisions(session, node, proposals=None):
         if start < 0 or not proposal["quote"]:
             raise ValueError("candidate quote must be exact source text")
         end = start + len(proposal["quote"])
+        extraction_key = f"extract:{node.id}:{node.revision}:{start}:{digest(key)[:12]}"
+        if session.scalar(
+            select(MemoryCandidate.id).where(
+                MemoryCandidate.project_id == project.id,
+                MemoryCandidate.idempotency_key == extraction_key,
+            )
+        ):
+            count += 1
+            continue
+        uri = (
+            root_uri(project.user_id, project.id)
+            + "/"
+            + {"episodic": "decisions", "semantic": "memories", "procedural": "skills"}[
+                proposal["kind"]
+            ]
+            + "/"
+            + quote(key, safe="")
+            + ".md"
+        )
+        uri = proposal.get("target_uri", uri)
+        current = session.scalar(
+            select(ContextNode).where(ContextNode.project_id == project.id, ContextNode.uri == uri)
+        )
+        if current and (
+            current.kind not in {"semantic", "episodic", "procedural"} or current.status != "active"
+        ):
+            raise ValueError("extraction target is not an accepted memory")
+        action = "UPDATE" if current else "ADD"
+        expected = current.revision if current else None
         evidence = session.scalar(
             select(MemoryEvidence).where(
                 MemoryEvidence.node_id == node.id,
@@ -218,26 +247,28 @@ def extract_decisions(session, node, proposals=None):
             session,
             project,
             {
-                "uri": root_uri(project.user_id, project.id)
-                + "/"
-                + {"episodic": "decisions", "semantic": "memories", "procedural": "skills"}[
-                    proposal["kind"]
-                ]
-                + "/"
-                + quote(key, safe="")
-                + ".md",
+                "uri": uri,
                 "kind": proposal["kind"],
                 "title": key,
                 "content": content,
-                "action": "ADD",
-                "expected_revision": None,
+                "action": action,
+                "expected_revision": expected,
                 "supersedes_id": None,
-                "evidence_ids": [evidence.id],
-                "idempotency_key": f"extract:{node.id}:{node.revision}:{start}:{digest(key)[:12]}",
+                "evidence_ids": list(
+                    dict.fromkeys([evidence.id, *proposal.get("context_evidence_ids", [])])
+                ),
+                "idempotency_key": extraction_key,
             },
             queue=False,
         )
         decision = proposal.get("retention_decision")
+        if (
+            current
+            and current.content == content
+            and not current.needs_review
+            and candidate.status == "pending"
+        ):
+            candidate.status, candidate.reason = "skipped", "duplicate_content"
         if decision and candidate.status == "pending":
             candidate.reason = f"retention:{decision.source};p={decision.probability:.3f};confidence={decision.confidence:.3f};{decision.reason}"[
                 :240

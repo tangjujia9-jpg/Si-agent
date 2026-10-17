@@ -18,10 +18,14 @@ test('a completed import refreshes the tree and opens source evidence', async ()
     } else if (path === '/api/jobs/job-1') value = { id: 'job-1', status: 'succeeded', attempts: 1, error: null };
     else if (path.endsWith('/context/tree')) value = imported ? [node] : [];
     else if (path === '/api/memory/node-1') value = { ...node, content: 'The original source evidence.' };
+    else if (path === '/api/models') value = [];
+    else if (path.endsWith('/threads') || path.endsWith('/evidence') || path.endsWith('/versions') || path.includes('/evidence?')) value = [];
     else throw new Error(`Unexpected request ${path}`);
     return { ok: true, json: async () => value };
   }));
   render(<App />);
+  await screen.findByRole('tab', { name: 'Context explorer' });
+  fireEvent.click(screen.getByRole('tab', { name: 'Context explorer' }));
   await screen.findByText('Import your first source to create the context tree.');
   fireEvent.change(screen.getByLabelText('SOURCE CONTENT'), { target: { value: 'Document text' } });
   fireEvent.click(screen.getByRole('button', { name: 'Import document ↗' }));

@@ -92,6 +92,8 @@ class Executor:
 
 
 def project_executor(memory, sessions):
+    from waku.tools.memory_actions import action_tools
+
     def search(args, context, _operation_id):
         from dataclasses import asdict
 
@@ -167,6 +169,7 @@ def project_executor(memory, sessions):
                 idempotent=True,
             ),
         ]
+        + action_tools(memory, sessions, Arguments, ToolSpec)
     )
 
     return executor

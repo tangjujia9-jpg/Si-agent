@@ -36,6 +36,8 @@ SAFE_FIELDS = {
     "duration_ms",
     "attempt",
     "stage",
+    "candidate_id",
+    "message_id",
 }
 ACTIVE_TRACE = ContextVar("si_active_trace", default=None)
 

@@ -275,7 +275,14 @@ class PostgresMemory:
         enqueue_index(session, project.id)
         return MemoryWriteReceipt(stored.id, stored.uri, created)
 
-    def forget(self, uri: str, *, user_id: str = "default", reason: str = "user_request") -> bool:
+    def forget(
+        self,
+        uri: str,
+        *,
+        user_id: str = "default",
+        reason: str = "user_request",
+        expected_revision: int | None = None,
+    ) -> bool:
         with self.sessions.begin() as session:
             node = session.scalar(
                 select(ContextNode)
@@ -288,6 +295,8 @@ class PostgresMemory:
             session.refresh(node)
             if node.status == "retracted" and blocked(session, node.project_id, uri, ""):
                 return True
+            if expected_revision is not None and node.revision != expected_revision:
+                raise ValueError("source changed since forget approval")
             forget_node(session, node, reason)
             refresh_indexes(session, node.project_id)
             enqueue_index(session, node.project_id)

@@ -1,21 +1,17 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { MemorySearch } from './MemorySearch';
+import { api, type ProjectNode as Node, type Job } from './api';
+import { Chat } from './Chat';
+import { MemoryInspector } from './MemoryInspector';
+import { MemoryReview } from './MemoryReview';
 
 type Project = { id: string; name: string; description: string };
-type Node = { id: string; uri: string; parent_uri: string | null; kind: string; title: string;
-  abstract: string; overview: string; content?: string; revision: number; source_event_ids: string[] };
-type Job = { id: string; status: string; attempts: number; error: string | null };
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json' } });
-  const value = await response.json();
-  if (!response.ok) throw new Error(typeof value.detail === 'string' ? value.detail : 'Please check your document path and content.');
-  return value;
-}
-
 export function App() {
+  const [tab, setTab] = useState('chat');
+  const [revision, setRevision] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
+  const currentProject = useRef(projectId); currentProject.current = projectId;
   const [nodes, setNodes] = useState<Node[]>([]);
   const [selected, setSelected] = useState<Node | null>(null);
   const [name, setName] = useState('');
@@ -77,11 +73,26 @@ export function App() {
   }
 
   async function inspect(node: Node) {
+    const scope = projectId;
     setSelected(node);
     try {
       const detail = await api<Node>(`/api/memory/${node.id}`);
-      setSelected(current => current?.id === detail.id ? detail : current);
+      if (currentProject.current === scope) setSelected(current => current?.id === detail.id ? detail : current);
     } catch (e) { setError((e as Error).message); }
+  }
+
+  const refresh = useCallback(() => {
+    if (!projectId) return;
+    void api<Node[]>(`/api/projects/${projectId}/context/tree`).then(rows => { if (currentProject.current === projectId) { setNodes(rows); setRevision(r => r + 1); } }).catch(e => { if (currentProject.current === projectId) setError(e.message); });
+  }, [projectId]);
+
+  async function inspectId(id: string) {
+    const scope = projectId;
+    try { const node = await api<Node>(`/api/memory/${id}`); if (currentProject.current === scope) await inspect(node); } catch (e) { if (currentProject.current === scope) setError((e as Error).message); }
+  }
+  function openUri(uri: string) {
+    const node = nodes.find(n => n.uri === uri);
+    if (node) void inspect(node); else setError('This citation does not resolve to an active source in the current project.');
   }
 
   const project = projects.find(p => p.id === projectId);
@@ -100,13 +111,17 @@ export function App() {
       <div className="rail-footer"><i className={ready ? 'online' : ''} />{ready ? 'API connected' : 'Connecting to API'}<small>Single user · multiple projects</small></div>
     </aside>
     <main>
-      <header><span>WORKSPACE / {project?.name || 'GET STARTED'}</span><span className="phase">MEMORY · 03</span></header>
+      <header><span>WORKSPACE / {project?.name || 'GET STARTED'}</span><span className="phase">PROJECT COPILOT · 06</span></header>
       <section className="intro"><div><p className="eyebrow">KNOWLEDGE WITH A HOME</p><h1>{project?.name || 'Build your project context.'}</h1>
-        <p>Give your project a place to remember. Import source material,<br className="desktop"/> follow its origin, and inspect every document.</p></div>
+        <p>Conversations grounded in your sources.<br className="desktop"/> Decisions you can inspect, correct, and remember.</p></div>
         <div className="resource-count"><strong>{resources.length.toString().padStart(2, '0')}</strong><span>source documents</span></div></section>
       {error && <div className="error" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
       {!projectId ? <div className="empty"><span>01 / START HERE</span><h2>Your context starts with a project.</h2><p>Create a workspace in the sidebar. Each project keeps its documents in a separate namespace.</p></div> : <>
-        <div className="workspace-grid">
+        <div className="workspace-nav" role="tablist" aria-label="Workspace views">{[['chat', 'Conversation'], ['context', 'Context explorer'], ['review', 'Memory review']].map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}{id === 'review' && nodes.some(n => n.needs_review) ? ' · needs review' : ''}</button>)}<button className="refresh-button" onClick={refresh}>Refresh ↻</button></div>
+        <div role="tabpanel">
+        {tab === 'chat' && <Chat key={projectId} projectId={projectId} open={openUri} changed={refresh} />}
+        {tab === 'review' && <MemoryReview key={projectId} projectId={projectId} nodes={nodes} open={id => void inspectId(id)} changed={refresh} />}
+        {tab === 'context' && <><div className="workspace-grid">
           <section className="panel import-panel"><div className="panel-heading"><h2>Import a source</h2><span>01</span></div>
             <form onSubmit={ingest}>
               <label htmlFor="path">DOCUMENT PATH</label><input id="path" value={path} onChange={e => setPath(e.target.value)} required maxLength={240}/>
@@ -125,17 +140,12 @@ export function App() {
             </div>}
           </section>
         </div>
-        <section className="panel evidence-panel"><div className="panel-heading"><h2>Source inspector</h2><span>03</span></div>
-          {selected ? <><div className="source-meta"><h3>{selected.title}</h3><span>{selected.kind} / revision {selected.revision}</span></div>
-            <code className="uri">{selected.uri}</code><pre>{selected.content || 'This directory groups project context.'}</pre>
-            {!!selected.source_event_ids.length && <p className="provenance">IMPORT EVIDENCE · {selected.source_event_ids.join(', ')}</p>}</> : <p className="placeholder">Select a node to inspect its content and import evidence.</p>}
-        </section>
-        <MemorySearch projectId={projectId} inspect={id => {
-          const node = nodes.find(n => n.id === id);
-          if (node) void inspect(node);
-        }} />
+        <MemorySearch projectId={projectId} inspect={id => void inspectId(id)} />
+        </>}
+        </div>
+        {selected && <MemoryInspector key={projectId + selected.id} nodeId={selected.id} projectId={projectId} revision={revision} changed={refresh} open={id => void inspectId(id)} />}
       </>}
-      <footer>SI-AGENT <span>Search scoped project evidence and inspect cited context. Agent chat will follow.</span></footer>
+      <footer>SI-AGENT <span>Project-scoped memory · cited answers · inspectable operations</span></footer>
     </main>
   </div>;
 }

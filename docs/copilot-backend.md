@@ -2,7 +2,7 @@
 
 Si-agent 通过 FastAPI 接收项目与资料，使用 PostgreSQL 持久化，通过独立 Worker
 导入与索引，再由 React 展示检索结果。当前版本支持单用户多项目，后端已经接通
-自主 Agent Loop 与模型生成；React 的聊天与 Run Trace 界面进入第六周。
+自主 Agent Loop 与模型生成；React 已提供聊天、记忆审核、检查台与 Run Trace。
 
 ## 组件职责
 
@@ -13,7 +13,7 @@ Si-agent 通过 FastAPI 接收项目与资料，使用 PostgreSQL 持久化，�
 | SQLAlchemy | 将 Python 操作转换为 SQL，管理连接、事务与 ORM 映射 | `waku/storage/database.py` |
 | Alembic | 根据版本号执行数据库结构和数据迁移 | `infra/migrations/` |
 | Worker | 领取任务、维护租约、执行导入与向量索引、失败重试 | `waku/workers/runner.py` |
-| React | 创建项目、粘贴资料、查看目录、查询证据 | `apps/web/src/` |
+| React | 创建项目、导入资料、聊天、审批、记忆检查与轨迹 | `apps/web/src/` |
 
 SQLAlchemy 和 Alembic 都不是数据库。原 SQLite 适合单机轻量运行，支持事务与
 FTS5；PostgreSQL 适合 API、多个 Worker 同时访问，提供行锁、`SKIP LOCKED`、

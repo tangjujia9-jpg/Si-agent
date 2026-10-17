@@ -6,7 +6,7 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-10-16
+**Last updated:** 2026-10-17
 
 ---
 
@@ -20,11 +20,13 @@ actions/conflicts, optional model enrichment and durable logical forget are impl
 The project Worker now runs an independent provider-neutral Loop with scoped
 memory, budgets, operation approvals, outbox and durable checkpoints. OpenAI,
 Anthropic and compatible adapters, optional Jev decisions, Langfuse OTLP export
-and a callable LangGraph workflow adapter are implemented. The React chat/trace
-screens, real-provider quality benchmarks and live Langfuse acceptance remain pending.
+and a callable LangGraph workflow adapter are implemented. React chat/SSE, operation
+approvals, candidate review, memory inspection and Run Trace are implemented.
+Real-provider quality benchmarks and live Langfuse acceptance remain pending.
 The unified-memory milestone adds per-run retrieval reuse, scoped flat hybrid search,
 incremental user-message proposals, separate representation revisions and derived-memory
-review flags. Legacy CLI migration and semantic conflict automation remain pending.
+review flags. Context-assisted proposals and user-evidenced corrections are implemented;
+legacy CLI migration and semantic conflict automation remain pending.
 See [copilot-unified-memory-release.md](copilot-unified-memory-release.md) for scope.
 See [copilot-week5-release.md](copilot-week5-release.md) for verification limits
 and [copilot-backend.md](copilot-backend.md) for startup commands.

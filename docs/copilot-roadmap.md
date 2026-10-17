@@ -1,7 +1,7 @@
 # Si-agent 后续开发与验收计划
 
 前五周已实现契约、持久化导入、带引用检索、记忆生命周期和自主运行时。
-完整产品需要补齐聊天与观测界面、会话自动沉淀和质量评测。验收报告使用中文，区分已实现、
+第六周已接通聊天、观测界面、会话辅助抽取与记忆修正，下一阶段重点验证质量与性能。验收报告使用中文，区分已实现、
 已验证与待实现能力。
 
 | 里程碑 | 开发内容 | 验收结果 |
@@ -9,7 +9,7 @@
 | 第四周 | 已实现分块、可选模型摘要/抽取、candidate/evidence/version、冲突、tombstone | 验证边界见[第四周报告](copilot-week4-release.md) |
 | 第五周 | 已实现新记忆接入 Loop、Provider、工具校验、operation/outbox、可选 LangGraph、Jev、Langfuse | 边界见[第五周报告](copilot-week5-release.md) |
 | 统一阶段 | 已接通会话候选、统一留存、Run 检索复用和来源失效；继续补迁移与显式用户修正 | 见[统一记忆报告](copilot-unified-memory-release.md) |
-| 第六周 | Chat/token delta、审批 UI、记忆检查台、Run Trace、模型配置、会话沉淀接线 | 回答可打开来源与运行轨迹 |
+| 第六周 | 已接通 Chat/SSE 进度、审批 UI、检查台、Run Trace、模型选择、会话辅助抽取与修正；逐 token 输出后置 | 见[第六周验收](copilot-week6-release.md) |
 | 第七周 | FTS5/hybrid 与外部适配器对比、检索与 Agent 指标、Eval Lab | 可重复评测质量、泄漏、过期、成本和延迟 |
 | 第八周 | README、演示、CI、恢复、安全与许可审查、基准报告 | 面试官十分钟内复现闭环 |
 

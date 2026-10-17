@@ -93,7 +93,7 @@ friendly view; the **Data** tab shows the raw `state.db` tables.
 The Si-agent Copilot product layer is opt-in: `waku/server/` exposes FastAPI,
 `waku/storage/` defines SQLAlchemy persistence, and `waku/workers/` processes
 durable document imports. `apps/web/` provides the independent React console.
-`memory/postgres.py` searches tier indexes through directory routing, lexical
+`memory/postgres.py` searches tier indexes through scoped flat retrieval (optional directory routing), lexical
 and cosine rank fusion, and cited context compilation. `memory/indexing.py`
 materializes previews and fences asynchronous embedding writes. `infra/`
 contains the Postgres migrations and Compose deployment. The original

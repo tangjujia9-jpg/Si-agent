@@ -127,8 +127,8 @@ def blocked(session, project_id, uri, content, evidence_ids=()):
     return False
 
 
-def invalidate_dependents(session, source):
-    """Conservatively hide derived facts until fresh evidence is explicitly accepted."""
+def dependent_ids(session, source):
+    """Inspect the same evidence dependency closure used by invalidation."""
     pending, visited = [source], {source.id}
     leaves = list(
         session.scalars(
@@ -144,10 +144,17 @@ def invalidate_dependents(session, source):
         )
         for node in leaves:
             if node.id not in visited and ids.intersection(node.source_event_ids):
-                node.needs_review = True
                 visited.add(node.id)
                 pending.append(node)
     return visited - {source.id}
+
+
+def invalidate_dependents(session, source):
+    """Conservatively hide derived facts until fresh evidence is explicitly accepted."""
+    ids = dependent_ids(session, source)
+    for node_id in ids:
+        session.get(ContextNode, node_id).needs_review = True
+    return ids
 
 
 def forget_node(session, node, reason):
@@ -198,6 +205,7 @@ def forget_node(session, node, reason):
                 "evidence_ids": [],
                 "source_nodes": [],
                 "retrieval_cache": None,
+                "statement_evidence_ids": [],
                 "redacted": True,
             }
             if run.status not in {"succeeded", "failed", "cancelled", "unknown"}:

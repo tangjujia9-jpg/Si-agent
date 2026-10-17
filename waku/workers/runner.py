@@ -201,7 +201,12 @@ def process(sessions, job_id, token, embedder=None, summarizer=None, extractor=N
         return _process(sessions, job_id, token, embedder, summarizer, extractor, runtime)
     records = []
     trace = Telemetry(records.append, runtime.exporter if runtime else None, trace_id=job_id)
-    with trace.span("job", {"job_id": job_id, "project_id": project_id}) as (_, attrs):
+    identity = {"job_id": job_id, "project_id": project_id, "stage": kind}
+    if job.payload.get("thread_id"):
+        identity["session_id"] = job.payload["thread_id"]
+    if job.payload.get("candidate_id"):
+        identity["candidate_id"] = job.payload["candidate_id"]
+    with trace.span("job", identity) as (_, attrs):
         ok = _process(sessions, job_id, token, embedder, summarizer, extractor, runtime)
         attrs["status"] = "succeeded" if ok else "failed"
     with sessions.begin() as session:

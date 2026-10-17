@@ -21,6 +21,7 @@ from waku.server.runs import run_routes
 from waku.server.schemas import (
     CandidateInput,
     CandidateOutput,
+    CorrectionInput,
     EvidenceOutput,
     ForgetInput,
     IngestInput,
@@ -281,7 +282,12 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
     def forget(node_id: str, payload: ForgetInput, session: Session = dependency):
         node = node_or_404(session, node_id)
         return {
-            "forgotten": memory_store.forget(node.uri, user_id=USER_ID, reason=payload.reason),
+            "forgotten": memory_store.forget(
+                node.uri,
+                user_id=USER_ID,
+                reason=payload.reason,
+                expected_revision=payload.expected_revision,
+            ),
             "node_id": node_id,
         }
 
@@ -318,7 +324,121 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
             raise HTTPException(404, "Candidate not found")
         project_or_404(session, candidate.project_id)
         session.execute(select(Project).where(Project.id == candidate.project_id).with_for_update())
+        session.refresh(candidate)
         return memory_store.accept_in_session(session, candidate)
+
+    @app.post("/api/memory/candidates/{candidate_id}/skip", response_model=CandidateOutput)
+    def skip_candidate(candidate_id: str, session: Session = dependency):
+        candidate = session.get(MemoryCandidate, candidate_id)
+        if candidate is None:
+            raise HTTPException(404, "Candidate not found")
+        project_or_404(session, candidate.project_id)
+        session.execute(select(Project).where(Project.id == candidate.project_id).with_for_update())
+        session.refresh(candidate)
+        if candidate.status == "skipped":
+            return candidate
+        if candidate.status != "pending" or candidate.job_id:
+            raise HTTPException(409, "Candidate already accepted or resolved")
+        candidate.status, candidate.reason = "skipped", "user_skipped"
+        return candidate
+
+    @app.get("/api/projects/{project_id}/jobs", response_model=list[JobOutput])
+    def project_jobs(
+        project_id: str, session: Session = dependency, limit: int = Query(30, ge=1, le=100)
+    ):
+        project_or_404(session, project_id)
+        return session.scalars(
+            select(Job)
+            .where(Job.project_id == project_id)
+            .order_by(Job.created_at.desc(), Job.id)
+            .limit(limit)
+        ).all()
+
+    @app.get("/api/projects/{project_id}/evidence", response_model=list[EvidenceOutput])
+    def project_evidence(
+        project_id: str, ids: str = Query(max_length=4000), session: Session = dependency
+    ):
+        project_or_404(session, project_id)
+        return session.scalars(
+            select(MemoryEvidence)
+            .join(ContextNode)
+            .where(
+                ContextNode.project_id == project_id, MemoryEvidence.id.in_(ids.split(",")[:100])
+            )
+        ).all()
+
+    @app.get("/api/memory/{node_id}/forget-preview")
+    def forget_preview(node_id: str, session: Session = dependency):
+        from waku.memory.lifecycle import dependent_ids
+
+        node = node_or_404(session, node_id)
+        ids = dependent_ids(session, node)
+        return {
+            "node_id": node.id,
+            "derived_node_ids": sorted(ids),
+            "redacts_messages": node.kind == "session",
+            "message": "Forget redacts source versions, evidence and known derived memories; affected checkpoints are cleared.",
+        }
+
+    @app.post("/api/memory/{node_id}/corrections", response_model=CandidateOutput, status_code=202)
+    def correct_memory(node_id: str, payload: CorrectionInput, session: Session = dependency):
+        from waku.workers.distillation import append_message, statement_source
+
+        node = node_or_404(session, node_id)
+        project = project_or_404(session, node.project_id)
+        session.execute(select(Project).where(Project.id == project.id).with_for_update())
+        session.refresh(node)
+        key = "correction:" + payload.idempotency_key
+        old = session.scalar(
+            select(MemoryCandidate).where(
+                MemoryCandidate.project_id == project.id, MemoryCandidate.idempotency_key == key
+            )
+        )
+        if old:
+            if (
+                old.uri != node.uri
+                or old.content != payload.content
+                or old.expected_revision != payload.expected_revision
+            ):
+                raise HTTPException(409, "Correction idempotency conflict")
+            return old
+        if (
+            node.kind not in {"semantic", "episodic", "procedural"}
+            or node.status != "active"
+            or node.revision != payload.expected_revision
+        ):
+            raise HTTPException(
+                409, "Only an active memory at the expected revision can be corrected"
+            )
+        thread = Thread(project_id=project.id, title="Memory correction: " + node.title[:120])
+        session.add(thread)
+        session.flush()
+        message = append_message(
+            session,
+            thread,
+            role="user",
+            content=payload.content,
+            event_data={"corrects_node_id": node.id},
+        )
+        source = statement_source(session, project, thread.id, message)
+        ids = list(
+            session.scalars(select(MemoryEvidence.id).where(MemoryEvidence.node_id == source.id))
+        )
+        return memory_store.submit_in_session(
+            session,
+            project,
+            {
+                "uri": node.uri,
+                "kind": node.kind,
+                "title": node.title,
+                "content": payload.content,
+                "action": "UPDATE",
+                "expected_revision": payload.expected_revision,
+                "supersedes_id": None,
+                "evidence_ids": ids,
+                "idempotency_key": key,
+            },
+        )
 
     @app.post("/api/threads/{thread_id}/memory/distill", response_model=JobOutput, status_code=202)
     def distill_thread(thread_id: str, session: Session = dependency):

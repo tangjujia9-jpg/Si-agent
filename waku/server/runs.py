@@ -5,14 +5,29 @@ import hashlib
 import json
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from waku.runtime.runner import TERMINAL, append_event, approve_operation, enqueue_run
+from waku.runtime.runner import (
+    TERMINAL,
+    append_event,
+    approve_operation,
+    enqueue_run,
+    validate_sources,
+)
 from waku.server.schemas import ApprovalInput, RunInput, RunOutput
-from waku.storage.models import Job, Message, Project, Run, RunEvent, Thread, ToolOperation
-from waku.workers.distillation import append_message, enqueue_distillation
+from waku.storage.models import (
+    Job,
+    MemoryEvidence,
+    Message,
+    Project,
+    Run,
+    RunEvent,
+    Thread,
+    ToolOperation,
+)
+from waku.workers.distillation import append_message, enqueue_distillation, statement_source
 
 
 def run_routes(sessions, user_id):
@@ -32,6 +47,65 @@ def run_routes(sessions, user_id):
         if project is None or project.user_id != user_id:
             raise HTTPException(404, "Resource not found")
         return row
+
+    @router.get("/api/projects/{project_id}/threads")
+    def threads(project_id: str):
+        with sessions() as session:
+            project = session.get(Project, project_id)
+            if not project or project.user_id != user_id:
+                raise HTTPException(404, "Project not found")
+            return [
+                {
+                    "id": t.id,
+                    "project_id": t.project_id,
+                    "title": t.title,
+                    "created_at": t.created_at,
+                }
+                for t in session.scalars(
+                    select(Thread)
+                    .where(Thread.project_id == project_id)
+                    .order_by(Thread.created_at.desc(), Thread.id)
+                    .limit(200)
+                )
+            ]
+
+    @router.get("/api/threads/{thread_id}/messages")
+    def messages(
+        thread_id: str,
+        before: int | None = Query(None, ge=1),
+        limit: int = Query(100, ge=1, le=200),
+    ):
+        with sessions() as session:
+            scoped(session, Thread, thread_id)
+            query = select(Message).where(Message.thread_id == thread_id)
+            if before is not None:
+                query = query.where(Message.sequence < before)
+            rows = session.scalars(query.order_by(Message.sequence.desc()).limit(limit)).all()
+            return [
+                {
+                    "id": m.id,
+                    "sequence": m.sequence,
+                    "role": m.role,
+                    "content": m.content,
+                    "event_data": m.event_data,
+                    "created_at": m.created_at,
+                }
+                for m in reversed(rows)
+            ]
+
+    @router.get("/api/threads/{thread_id}/runs")
+    def runs(thread_id: str, limit: int = Query(50, ge=1, le=200)):
+        with sessions() as session:
+            scoped(session, Thread, thread_id)
+            return [
+                RunOutput.model_validate(r).model_dump()
+                for r in session.scalars(
+                    select(Run)
+                    .where(Run.thread_id == thread_id)
+                    .order_by(Run.created_at.desc(), Run.id)
+                    .limit(limit)
+                )
+            ]
 
     @router.post("/api/threads/{thread_id}/messages", response_model=RunOutput, status_code=202)
     def start(thread_id: str, payload: RunInput):
@@ -70,9 +144,22 @@ def run_routes(sessions, user_id):
             history = session.scalars(
                 select(Message)
                 .where(Message.thread_id == thread_id, Message.role.in_(("user", "assistant")))
-                .order_by(Message.created_at.desc(), Message.id.desc())
+                .order_by(Message.sequence.desc())
                 .limit(12)
             ).all()
+
+            def current_history(message):
+                if message.event_data.get("redacted"):
+                    return False
+                try:
+                    # Historical assistant answers remain auditable, but stale
+                    # conclusions must not poison the next provider request.
+                    validate_sources(session, thread, message.event_data)
+                    return True
+                except ValueError:
+                    return False
+
+            history = [m for m in history if current_history(m)]
             messages = [{"role": m.role, "content": m.content} for m in reversed(history)]
             messages.append({"role": "user", "content": payload.content})
             state = {
@@ -110,13 +197,29 @@ def run_routes(sessions, user_id):
             )
             session.add(run)
             session.flush()
-            append_message(
+            message = append_message(
                 session,
                 thread,
                 role="user",
                 content=payload.content,
                 event_data={"run_id": run.id},
             )
+            source = statement_source(
+                session, session.get(Project, thread.project_id), thread_id, message
+            )
+            state["statement_evidence_ids"] = list(
+                session.scalars(
+                    select(MemoryEvidence.id).where(
+                        MemoryEvidence.node_id == source.id,
+                        MemoryEvidence.revision == source.revision,
+                    )
+                )
+            )
+            state["evidence_ids"] = list(
+                set(state["evidence_ids"]) | set(state["statement_evidence_ids"])
+            )
+            state["source_nodes"].append({"id": source.id, "revision": source.revision})
+            run.context = state
             enqueue_distillation(session, thread)
             job = enqueue_run(session, run, key)
             job.payload_hash = digest
@@ -162,7 +265,12 @@ def run_routes(sessions, user_id):
             ]
 
     @router.get("/api/runs/{run_id}/events/stream")
-    def stream(run_id: str, after: int = Query(0, ge=0)):
+    def stream(run_id: str, after: int = Query(0, ge=0), last_event_id: str | None = Header(None)):
+        if last_event_id is not None:
+            try:
+                after = max(after, int(last_event_id))
+            except ValueError:
+                raise HTTPException(422, "Invalid Last-Event-ID") from None
         with sessions() as session:
             scoped(session, Run, run_id)
 
@@ -174,12 +282,10 @@ def run_routes(sessions, user_id):
                     cursor = event["id"]
                     yield f"id: {cursor}\nevent: {event['kind']}\ndata: {json.dumps(event['data'])}\n\n"
                 snapshot = await asyncio.to_thread(get_run, run_id)
-                if (
-                    snapshot["status"] in TERMINAL | {"waiting_approval", "waiting_operation"}
-                    and len(records) < 500
-                ):
+                if len(records) < 500:
                     yield "event: snapshot\ndata: " + json.dumps(snapshot, default=str) + "\n\n"
-                    return
+                    if snapshot["status"] in TERMINAL:
+                        return
                 yield ": heartbeat\n\n"
                 await asyncio.sleep(0.5)
 
