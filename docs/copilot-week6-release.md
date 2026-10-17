@@ -1,5 +1,7 @@
 # Si-agent 第六周开发与验收
 
+前端已改为中文，完整功能与操作见[中文前端手册](copilot-console.zh-CN.md)。
+
 日期：2026-10-17。本轮将统一记忆后端接入可操作的 React 工作台，并补齐会话辅助抽取与显式修正。
 本轮保持 PostgreSQL/pgvector 主路径，保留旧 CLI，不搬运或删除已有用户数据库。
 
@@ -10,7 +12,7 @@
 | Chat | 创建与切换会话、选择后端模型、加载历史、发送消息、引用打开、取消运行 |
 | SSE | 恢复持久化游标、去重重放事件、连接中断提示、审批期间持续快照、终态关闭 |
 | 审批 | 展示工具参数与结果，人工批准/拒绝，再由原 outbox 驱动执行与恢复 |
-| Memory review | 待审、接受、跳过、变更前后内容、证据打开、冲突原因、后台任务轨迹 |
+| 记忆审核 | 待审、接受、跳过、变更前后内容、证据打开、冲突原因、后台任务轨迹 |
 | Inspector | L0/L1/L2、正文/表示版本、引用来源、历史对比、待复核、修正、撤回和忘记预览 |
 | 会话抽取 | 当前用户消息附带有界用户历史与有效记忆，解析后仍需当前消息的精确引用 |
 | 事实对齐 | 同键命中有效节点后生成 UPDATE，携带 expected_revision；模型可以指定给定上下文中的目标 URI |
@@ -76,12 +78,12 @@ docker compose -f infra/compose.yaml up -d --build
 
 打开 http://127.0.0.1:8080，按以下步骤验收：
 
-1. 创建项目，在 Context explorer 导入 `Decision[storage]: Use SQLite for the project database.`。
-2. 打开 Memory review，检查来源并接受 storage 候选，等待 applied。
-3. 打开结果节点，展开 Correct this memory，提交 PostgreSQL/pgvector 的新陈述。
+1. 创建项目，在 上下文浏览 导入 `Decision[storage]: Use SQLite for the project database.`。
+2. 打开 记忆审核，检查来源并接受 storage 候选，等待“已应用”。
+3. 打开结果节点，展开 修正这条记忆，提交 PostgreSQL/pgvector 的新陈述。
 4. 接受 UPDATE 候选，查看正文 revision 增加和历史前后对比。
-5. 在 Conversation 创建新会话，选择 demo/evidence-demo，询问 PostgreSQL，打开 storage.md 引用。
-6. 刷新页面，确认当前会话、消息和 Run Trace 恢复。接真实模型后可开启记忆变更工具并操作审批。
+5. 在 项目对话 创建新会话，选择 demo/evidence-demo，询问 PostgreSQL，打开 storage.md 引用。
+6. 刷新页面，确认当前会话、消息和 运行轨迹 恢复。接真实模型后可开启记忆变更工具并操作审批。
 7. 在检查台预览忘记范围，再确认忘记；检查正文与历史脱敏、关联事实和运行状态。
 
 实际后端模型质量、成本及延迟，需要另外配置真实模型后测试。
@@ -106,7 +108,7 @@ python scripts/smoke_console.py
 ```
 
 本机可用 `--browser-executable` 指定已安装的 Chrome，使用 `--url` 和 `--api-url` 连接自己的开发端口。
-脚本检查导入、候选审核、修正、跨会话引用、刷新恢复、Run Trace、忘记与手机宽度布局。
+脚本检查导入、候选审核、修正、跨会话引用、刷新恢复、运行轨迹、忘记与手机宽度布局。
 截图保存在 .artifacts/console；CI 在 Compose 作业里运行并上传截图。
 
 本轮本机已通过真实 Chrome 浏览器闭环，包含桌面和 390px 手机布局，无页面脚本错误。

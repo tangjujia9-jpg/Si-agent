@@ -1,3 +1,4 @@
+import { uiMessage } from './ui';
 export type ProjectNode = { id: string; uri: string; parent_uri: string | null; kind: string; title: string;
   abstract: string; overview: string; content?: string; revision: number; representation_revision: number;
   status: string; needs_review: boolean; source_event_ids: string[] };
@@ -15,7 +16,7 @@ export const terminal = (status: string) => ['succeeded', 'failed', 'cancelled',
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   const value = await response.json();
-  if (!response.ok) throw new Error(typeof value.detail === 'string' ? value.detail : 'Please check the request and retry.');
+  if (!response.ok) throw new Error(typeof value.detail === 'string' ? uiMessage(value.detail) : '请检查输入后重试。');
   return value;
 }
 export const post = <T,>(path: string, body: unknown = {}) => api<T>(path, { method: 'POST', body: JSON.stringify(body) });

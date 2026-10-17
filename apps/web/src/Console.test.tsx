@@ -31,8 +31,8 @@ test('run trace resumes the durable cursor, deduplicates replay and closes after
   await waitFor(() => expect(Stream.instances.length).toBe(1));
   const source = Stream.instances[0]; expect(source.url).toContain('after=1');
   act(() => { source.emit('tool_start', { tool: 'search_memory' }, '2'); source.emit('tool_start', {}, '2'); source.onerror?.(); });
-  expect(screen.getByText('Reconnecting · saved events retained')).toBeTruthy();
-  expect(screen.getAllByText('tool start').length).toBe(1);
+  expect(screen.getByText('正在重连 · 已保留事件记录')).toBeTruthy();
+  expect(screen.getAllByText('工具开始').length).toBe(1);
   act(() => source.emit('snapshot', { id: 'r', status: 'succeeded', model: 'demo', trace_id: 'trace' }));
   expect(finish).toHaveBeenCalledTimes(1); expect(source.close).toHaveBeenCalled();
 });
@@ -44,7 +44,7 @@ test('a pending operation can be rejected without reporting it as completed', as
       : { id: 'r', status: 'waiting_approval', model: 'demo', operations: [{ id: 'o', tool: 'forget_memory', status: 'pending', arguments: { uri: node.uri }, result: {} }] }));
   vi.stubGlobal('fetch', fetcher);
   render(<RunTrace runId="r" onFinish={() => {}} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Reject operation' }));
+  fireEvent.click(await screen.findByRole('button', { name: '拒绝操作' }));
   await waitFor(() => expect(fetcher.mock.calls.some(([path, init]) => path === '/api/operations/o/approval' && JSON.parse(String(init?.body)).approved === false)).toBe(true));
 });
 
@@ -70,11 +70,11 @@ test('chat retries an ambiguous transport failure with the same idempotency key'
       ? [{ ref: { provider: 'demo', model: 'evidence-demo', kind: 'chat' }, capabilities: { tool_calling: true } }] : []);
   }));
   render(<Chat projectId="p" open={() => {}} changed={() => {}} />);
-  await waitFor(() => expect((screen.getByRole('button', { name: 'Send message ↗' }) as HTMLButtonElement).disabled).toBe(false));
-  fireEvent.change(screen.getByLabelText('MESSAGE'), { target: { value: 'What storage?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send message ↗' }));
+  await waitFor(() => expect((screen.getByRole('button', { name: '发送消息 ↗' }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText('消息内容'), { target: { value: 'What storage?' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送消息 ↗' }));
   await screen.findByText('Connection lost');
-  fireEvent.click(screen.getByRole('button', { name: 'Send message ↗' }));
+  fireEvent.click(screen.getByRole('button', { name: '发送消息 ↗' }));
   await waitFor(() => expect(attempts).toBe(2));
   expect(bodies[0].idempotency_key).toBe(bodies[1].idempotency_key);
   expect(bodies[0]).not.toHaveProperty('kind');
@@ -86,11 +86,11 @@ test('forget requires an impact preview and explicit acknowledgement', async () 
   vi.stubGlobal('fetch', fetcher);
   render(<MemoryInspector nodeId="n" projectId="p" revision={0} changed={() => {}} open={() => {}} />);
   await screen.findByRole('heading', { name: 'Storage' });
-  fireEvent.click(screen.getByText('Forget this source'));
-  fireEvent.click(screen.getByRole('button', { name: 'Preview affected memories' }));
-  const forget = await screen.findByRole('button', { name: 'Forget permanently' });
+  fireEvent.click(screen.getByText('忘记此来源'));
+  fireEvent.click(screen.getByRole('button', { name: '预览影响范围' }));
+  const forget = await screen.findByRole('button', { name: '确认忘记' });
   expect((forget as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(screen.getByLabelText('I understand the source history will be redacted'));
+  fireEvent.click(screen.getByLabelText('我已知晓来源历史将被脱敏'));
   fireEvent.click(forget);
   await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/memory/n/forget')).toBe(true));
 });
@@ -102,8 +102,8 @@ test('review can skip a pending proposal and inspect its source evidence', async
       : path.endsWith('/candidates') ? [c] : init?.method ? {} : []));
   vi.stubGlobal('fetch', fetcher);
   render(<MemoryReview projectId="p" nodes={[]} changed={() => {}} open={() => {}} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Inspect evidence (1)' }));
-  await screen.findByRole('button', { name: 'Open source ↗' });
-  fireEvent.click(screen.getByRole('button', { name: 'Skip candidate' }));
+  fireEvent.click(await screen.findByRole('button', { name: '查看证据（1）' }));
+  await screen.findByRole('button', { name: '打开来源 ↗' });
+  fireEvent.click(screen.getByRole('button', { name: '跳过候选' }));
   await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/memory/candidates/c/skip')).toBe(true));
 });

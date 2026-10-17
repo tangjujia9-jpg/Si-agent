@@ -39,6 +39,7 @@ into four groups.
 | [copilot-week4-release.md](copilot-week4-release.md) | 第四周中文验收：分块、候选、证据、历史版本、冲突与忘记 |
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
 | [copilot-runtime.md](copilot-runtime.md) | 第五周运行时、工具恢复、Provider、Jev 与 Langfuse 设计 |
+| [copilot-console.zh-CN.md](copilot-console.zh-CN.md) | 中文前端手册：对话、导入、检索、审核、检查器与运行轨迹 |
 | [copilot-week6-release.md](copilot-week6-release.md) | 第六周中文验收：对话、审批、检查台、上下文辅助抽取与浏览器闭环 |
 | [copilot-week5-release.md](copilot-week5-release.md) | 第五周中文验收：自主 Loop、Harness、模型接入、Jev、Langfuse 与恢复边界 |
 | [context-copilot-design.md](context-copilot-design.md) | 第一周中文设计记录：领域契约与 FTS5 基线 |

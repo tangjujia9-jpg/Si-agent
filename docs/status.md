@@ -22,6 +22,8 @@ memory, budgets, operation approvals, outbox and durable checkpoints. OpenAI,
 Anthropic and compatible adapters, optional Jev decisions, Langfuse OTLP export
 and a callable LangGraph workflow adapter are implemented. React chat/SSE, operation
 approvals, candidate review, memory inspection and Run Trace are implemented.
+The product console defaults to Chinese; [copilot-console.zh-CN.md](copilot-console.zh-CN.md)
+describes its controls and current limits. Model identifiers, source content and raw trace fields retain their original values.
 Real-provider quality benchmarks and live Langfuse acceptance remain pending.
 The unified-memory milestone adds per-run retrieval reuse, scoped flat hybrid search,
 incremental user-message proposals, separate representation revisions and derived-memory

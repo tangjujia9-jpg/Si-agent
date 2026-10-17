@@ -51,50 +51,50 @@ def main():
         page = browser.new_page(viewport={"width": 1440, "height": 1050})
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(args.url)
-        page.get_by_label("Create a project", exact=True).fill(name)
-        page.get_by_role("button", name="Add workspace +").click()
+        page.get_by_label("创建项目", exact=True).fill(name)
+        page.get_by_role("button", name="添加项目 +").click()
         expect(page.get_by_role("heading", name=name, exact=True)).to_be_visible()
         pid = next(p["id"] for p in api("/api/projects") if p["name"] == name)
-        page.get_by_role("tab", name="Context explorer", exact=True).click()
-        page.get_by_label("SOURCE CONTENT").fill(
+        page.get_by_role("tab", name="上下文浏览", exact=True).click()
+        page.get_by_label("资料正文").fill(
             "Decision[storage]: Use SQLite for the project database."
         )
-        page.get_by_role("button", name="Import document").click()
+        page.get_by_role("button", name="导入文档").click()
         page.get_by_role("button", name="architecture.md").click(timeout=60000)
         expect(
-            page.get_by_label("Memory inspector")
+            page.get_by_label("记忆检查器")
             .get_by_text("Decision[storage]: Use SQLite for the project database.", exact=True)
             .first
         ).to_be_visible()
         page.screenshot(path=str(output / "01-context.png"), full_page=True)
         wait_candidate(lambda c: c["title"] == "storage" and c["status"] == "pending")
-        page.get_by_role("tab", name="Memory review", exact=True).click()
-        page.get_by_role("button", name="Accept candidate", exact=True).click(timeout=60000)
+        page.get_by_role("tab", name="记忆审核", exact=True).click()
+        page.get_by_role("button", name="接受候选", exact=True).click(timeout=60000)
         accepted = wait_candidate(lambda c: c["title"] == "storage" and c["status"] == "applied")
-        page.get_by_role("button", name="Open resulting memory").click(timeout=15000)
-        inspector = page.get_by_label("Memory inspector")
-        inspector.get_by_text("Correct this memory", exact=True).click()
-        inspector.get_by_label("NEW STATEMENT").fill(
+        page.get_by_role("button", name="打开已生成记忆").click(timeout=15000)
+        inspector = page.get_by_label("记忆检查器")
+        inspector.get_by_text("修正这条记忆", exact=True).click()
+        inspector.get_by_label("新的事实陈述").fill(
             "Use PostgreSQL with pgvector for the project database."
         )
-        inspector.get_by_role("button", name="Propose correction", exact=True).click()
+        inspector.get_by_role("button", name="提交修正候选", exact=True).click()
         correction = wait_candidate(lambda c: c["action"] == "UPDATE" and c["status"] == "pending")
         card = page.locator(".candidate").filter(has_text="Use PostgreSQL with pgvector")
-        card.get_by_role("button", name="Accept candidate", exact=True).click(timeout=15000)
+        card.get_by_role("button", name="接受候选", exact=True).click(timeout=15000)
         wait_candidate(lambda c: c["id"] == correction["id"] and c["status"] == "applied")
-        page.get_by_role("button", name="Refresh", exact=False).click()
+        page.get_by_role("button", name="刷新", exact=False).click()
         expect(inspector.locator("pre").first).to_have_text(
             "Use PostgreSQL with pgvector for the project database."
         )
-        inspector.get_by_text("Version comparison", exact=False).click()
+        inspector.get_by_text("版本对比", exact=False).click()
         page.screenshot(path=str(output / "02-memory.png"), full_page=True)
-        page.get_by_role("tab", name="Conversation", exact=True).click()
-        page.get_by_role("button", name="New conversation +").click()
-        page.get_by_label("MESSAGE", exact=True).fill(
+        page.get_by_role("tab", name="项目对话", exact=True).click()
+        page.get_by_role("button", name="新建会话 +").click()
+        page.get_by_label("消息内容", exact=True).fill(
             "What project database uses PostgreSQL and pgvector?"
         )
-        page.get_by_role("button", name="Send message").click()
-        expect(page.get_by_role("status").filter(has_text="working")).to_have_count(
+        page.get_by_role("button", name="发送消息").click()
+        expect(page.get_by_role("status").filter(has_text="正在处理")).to_have_count(
             0, timeout=60000
         )
         page.locator(".message.assistant .citation", has_text="storage.md").click(timeout=60000)
@@ -103,15 +103,15 @@ def main():
         )
         page.reload()
         expect(page.locator(".message.assistant")).to_contain_text("Offline demo", timeout=15000)
-        expect(page.get_by_label("Run trace")).to_contain_text("succeeded")
+        expect(page.get_by_label("运行轨迹")).to_contain_text("已完成")
         page.screenshot(path=str(output / "03-chat-trace.png"), full_page=True)
         # Exercise the destructive UI only on this script's new disposable memory.
         page.locator(".message.assistant .citation", has_text="storage.md").click()
-        inspector.get_by_text("Forget this source", exact=True).click()
-        inspector.get_by_role("button", name="Preview affected memories").click()
-        inspector.get_by_label("I understand the source history will be redacted").check()
-        inspector.get_by_role("button", name="Forget permanently").click()
-        expect(inspector).to_contain_text("retracted", timeout=15000)
+        inspector.get_by_text("忘记此来源", exact=True).click()
+        inspector.get_by_role("button", name="预览影响范围").click()
+        inspector.get_by_label("我已知晓来源历史将被脱敏").check()
+        inspector.get_by_role("button", name="确认忘记").click()
+        expect(inspector).to_contain_text("已撤回", timeout=15000)
         assert api(f"/api/memory/{accepted['node_id']}")["content"] == ""
         page.set_viewport_size({"width": 390, "height": 844})
         page.screenshot(path=str(output / "04-mobile.png"), full_page=True)

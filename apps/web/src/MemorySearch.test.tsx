@@ -14,11 +14,11 @@ test('search displays citations and invokes the source inspector', async () => {
       warnings: ['Embeddings disabled; lexical retrieval was used.'], stages: [] }) };
   }));
   render(<MemorySearch projectId="p" inspect={inspect} />);
-  fireEvent.change(screen.getByLabelText('SEARCH THIS PROJECT'), { target: { value: 'storage' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Search evidence ↗' }));
+  fireEvent.change(screen.getByLabelText('检索当前项目'), { target: { value: 'storage' } });
+  fireEvent.click(screen.getByRole('button', { name: '检索证据 ↗' }));
   await screen.findByText('Use pgvector.');
   expect(screen.getByText(uri)).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Open source ↗' }));
+  fireEvent.click(screen.getByRole('button', { name: '打开来源 ↗' }));
   expect(inspect).toHaveBeenCalledWith('n');
 });
 
@@ -26,10 +26,10 @@ test('switching projects cancels pending retrieval and discards its result', asy
   let resolve: (value: unknown) => void = () => {};
   vi.stubGlobal('fetch', vi.fn(() => new Promise(r => { resolve = r; })));
   const view = render(<MemorySearch projectId="a" inspect={() => {}} />);
-  fireEvent.change(screen.getByLabelText('SEARCH THIS PROJECT'), { target: { value: 'storage' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Search evidence ↗' }));
+  fireEvent.change(screen.getByLabelText('检索当前项目'), { target: { value: 'storage' } });
+  fireEvent.click(screen.getByRole('button', { name: '检索证据 ↗' }));
   view.rerender(<MemorySearch projectId="b" inspect={() => {}} />);
   await act(async () => { resolve({ ok: true, json: async () => ({ hits: [], warnings: [], stages: [], estimated_tokens: 1 }) }); });
-  expect(screen.queryByText('0 evidence sources')).toBeNull();
-  expect((screen.getByRole('button', { name: 'Search evidence ↗' }) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByText('0 条证据来源')).toBeNull();
+  expect((screen.getByRole('button', { name: '检索证据 ↗' }) as HTMLButtonElement).disabled).toBe(false);
 });
