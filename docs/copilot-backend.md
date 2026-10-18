@@ -43,6 +43,61 @@ docker compose -f infra/compose.yaml down
 
 ## 本机开发
 
+### 重启现有中文演示环境
+
+2026-10-18 的本机演示复用了上一轮临时 SQLite 数据库。前端地址为
+`http://127.0.0.1:5186`，后端文档地址为 `http://127.0.0.1:8016/docs`。
+该模式用于本机体验；PostgreSQL/pgvector 的完整环境仍按上面的 Compose 命令启动。
+临时数据库不适合长期保管项目资料，也不能代替 PostgreSQL 的并发、全文与向量索引验收。
+
+已经安装依赖时，可以分别在三个 PowerShell 终端启动下列进程。
+前两个终端必须使用同一个数据库地址与向量配置。下面命令只复用已有数据库；
+若数据库不存在，请使用 Compose 环境，不要把生产 Alembic 迁移直接应用到 SQLite。
+
+终端一启动 API：
+
+```powershell
+cd C:\code\agent-study\waku-agent
+$siDemoDb = 'C:\Users\Tang\AppData\Local\Temp\si-week6-34fdc9454ffa44b4a092b309afef0a44.db'
+if (!(Test-Path -LiteralPath $siDemoDb)) { throw '演示库不存在，请使用 Docker Compose 启动完整环境。' }
+$env:SI_DATABASE_URL = 'sqlite:///' + $siDemoDb.Replace('\', '/')
+$env:SI_EMBEDDING_BACKEND = 'hash-demo'
+& .\.venv\Scripts\python.exe -m uvicorn waku.server.app:create_app --factory --host 127.0.0.1 --port 8016
+```
+
+终端二启动 Worker：
+
+```powershell
+cd C:\code\agent-study\waku-agent
+$siDemoDb = 'C:\Users\Tang\AppData\Local\Temp\si-week6-34fdc9454ffa44b4a092b309afef0a44.db'
+if (!(Test-Path -LiteralPath $siDemoDb)) { throw '演示库不存在，请使用 Docker Compose 启动完整环境。' }
+$env:SI_DATABASE_URL = 'sqlite:///' + $siDemoDb.Replace('\', '/')
+$env:SI_EMBEDDING_BACKEND = 'hash-demo'
+& .\.venv\Scripts\python.exe -m waku.workers.runner
+```
+
+终端三启动前端：
+
+```powershell
+cd C:\code\agent-study\waku-agent\apps\web
+$env:SI_API_URL = 'http://127.0.0.1:8016'
+npm run dev -- --port 5186 --strictPort
+```
+
+本次执行环境没有可用的 npm 命令入口，但已有 Node 与 node_modules，因此实际使用了等价的启动命令：
+
+```powershell
+& 'C:\Users\Tang\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5186 --strictPort
+```
+
+前端通过 Vite 将 `/api` 与 `/ready` 代理到 8016。仅启动前端只能显示页面，
+停止 Worker 会使导入、抽取与 Agent 运行停留在队列中。
+可以访问 `http://127.0.0.1:5186/ready` 检查前端代理与数据库就绪情况。
+正常返回后，打开页面并新建项目或切换已有项目即可。终端前台运行时，按 Ctrl+C 停止对应服务。
+`hash-demo` 使用演示向量，不提供真实语义检索能力。
+
+### 使用 PostgreSQL 开发
+
 安装 `uv sync --frozen --extra dev --extra copilot`。
 将 `SI_DATABASE_URL` 设置为自己的 PostgreSQL SQLAlchemy URL，例如：
 
