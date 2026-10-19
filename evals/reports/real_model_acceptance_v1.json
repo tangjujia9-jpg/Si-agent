@@ -1,0 +1,874 @@
+{
+  "date": "2026-10-19",
+  "scope": "synthetic local SQLite acceptance; Jev disabled; not batch generation evaluation",
+  "model": "hy3",
+  "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+  "runs": [
+    {
+      "id": "94379729-51d1-42bf-a4b6-02d35cf8e473",
+      "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+      "thread_id": "2694369e-5fd0-4d4b-8074-ca8b0a8a1681",
+      "status": "succeeded",
+      "model": "hy3",
+      "trace_id": "c362fc753aaa40cf82aedd7b82dd8ecf",
+      "created_at": "2026-10-19T03:24:46.693494",
+      "reply": "根据本项目资料，回答如下：\n\n**1. Si-agent 使用什么主数据库？**\nSi-agent 的主数据库确定使用 **PostgreSQL** 和 **pgvector**。\n\n**2. 写工具需要什么审批？**\n所有**写工具必须经过人工审批**（此外，每个项目的资料与记忆必须隔离）。\n\n**来源引用：**\n[si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/resources/docs/real-model-acceptance.md]",
+      "iterations": 1,
+      "charged_tokens": 3321,
+      "usage_tokens": 1081,
+      "error_code": null,
+      "operations": [],
+      "acceptance_role": "first_run_id",
+      "event_kinds": [
+        "run_queued",
+        "run_start",
+        "span",
+        "embedding_start",
+        "memory_search",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "llm_start",
+        "span",
+        "llm_end",
+        "span",
+        "run_end"
+      ],
+      "spans": [
+        {
+          "name": "retrieval_gate",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": null,
+            "source": "local-rule",
+            "probability": 1.0,
+            "confidence": 1.0,
+            "reason": ""
+          }
+        },
+        {
+          "name": "embedding",
+          "status": "succeeded",
+          "duration_ms": 141.0,
+          "attributes": {
+            "model": "qwen3.7-text-embedding-flash",
+            "input_tokens": 42,
+            "output_tokens": 0,
+            "total_tokens": 42,
+            "estimated": false
+          }
+        },
+        {
+          "name": "retrieval_l0_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l0_leaves",
+            "count": 1
+          }
+        },
+        {
+          "name": "retrieval_l1_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l1_leaves",
+            "count": 1
+          }
+        },
+        {
+          "name": "retrieval_l2_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l2_leaves",
+            "count": 1
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 1,
+            "estimated": true
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "count": 1
+          }
+        },
+        {
+          "name": "memory_search",
+          "status": "succeeded",
+          "duration_ms": 438.0,
+          "attributes": {
+            "count": 1
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 1,
+            "estimated": true
+          }
+        },
+        {
+          "name": "llm",
+          "status": "succeeded",
+          "duration_ms": 9406.0,
+          "attributes": {
+            "model": "hy3",
+            "provider": "openai-compatible",
+            "iteration": 1,
+            "attempt": 1,
+            "input_tokens": 570,
+            "output_tokens": 511,
+            "total_tokens": 1081,
+            "cost_usd": null,
+            "estimated": false
+          }
+        },
+        {
+          "name": "run",
+          "status": "succeeded",
+          "duration_ms": 12125.0,
+          "attributes": {
+            "run_id": "94379729-51d1-42bf-a4b6-02d35cf8e473",
+            "user_id": "default",
+            "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+            "session_id": "2694369e-5fd0-4d4b-8074-ca8b0a8a1681",
+            "provider": "openai-compatible",
+            "model": "hy3",
+            "status": "succeeded"
+          }
+        }
+      ],
+      "cited_uris": [
+        "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/resources/docs/real-model-acceptance.md"
+      ],
+      "citations_resolve_in_project": true
+    },
+    {
+      "id": "7688eff4-d2b4-4132-a987-833244d48310",
+      "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+      "thread_id": "fe268e7b-f7cd-4f73-9874-567441eab191",
+      "status": "failed",
+      "model": "hy3",
+      "trace_id": "3d7edfdbea8f451895e79aa5415b33a8",
+      "created_at": "2026-10-19T03:28:18.793594",
+      "reply": "",
+      "iterations": 3,
+      "charged_tokens": 21007,
+      "usage_tokens": 2557,
+      "error_code": "context_budget",
+      "operations": [
+        {
+          "id": "f18cacca-078e-4016-bb73-f4bb901ad55e",
+          "tool": "search_memory",
+          "status": "succeeded",
+          "arguments": {
+            "query": "主数据库 PostgreSQL pgvector 加密备份",
+            "top_k": 5
+          }
+        },
+        {
+          "id": "67554ea2-ae05-47a2-b693-5dde780360d8",
+          "tool": "search_memory",
+          "status": "succeeded",
+          "arguments": {
+            "query": "每天凌晨加密备份时间",
+            "top_k": 5
+          }
+        },
+        {
+          "id": "8ca52b53-7a97-47bc-be12-9baaf74c87e0",
+          "tool": "read_memory",
+          "status": "succeeded",
+          "arguments": {
+            "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md"
+          }
+        },
+        {
+          "id": "32a2fc5a-a203-4262-bf2b-e83ad3e87be0",
+          "tool": "read_memory",
+          "status": "succeeded",
+          "arguments": {
+            "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md"
+          }
+        },
+        {
+          "id": "be08dbe1-f257-4131-b1fd-cab283f24d40",
+          "tool": "read_memory",
+          "status": "succeeded",
+          "arguments": {
+            "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/resources/docs/real-model-acceptance.md"
+          }
+        }
+      ],
+      "acceptance_role": "budget_failed_run_id",
+      "event_kinds": [
+        "run_queued",
+        "run_start",
+        "span",
+        "embedding_start",
+        "memory_search",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "llm_start",
+        "span",
+        "llm_end",
+        "embedding_start",
+        "tool_start",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "tool_end",
+        "embedding_start",
+        "tool_start",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "tool_end",
+        "span",
+        "llm_start",
+        "span",
+        "llm_end",
+        "tool_start",
+        "span",
+        "tool_end",
+        "span",
+        "llm_start",
+        "span",
+        "llm_end",
+        "tool_start",
+        "span",
+        "tool_end",
+        "tool_start",
+        "span",
+        "tool_end",
+        "span",
+        "run_error",
+        "span",
+        "run_end"
+      ],
+      "spans": [
+        {
+          "name": "retrieval_gate",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": null,
+            "source": "local-rule",
+            "probability": 1.0,
+            "confidence": 1.0,
+            "reason": ""
+          }
+        },
+        {
+          "name": "embedding",
+          "status": "succeeded",
+          "duration_ms": 109.0,
+          "attributes": {
+            "model": "qwen3.7-text-embedding-flash",
+            "input_tokens": 43,
+            "output_tokens": 0,
+            "total_tokens": 43,
+            "estimated": false
+          }
+        },
+        {
+          "name": "retrieval_l0_leaves",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "stage": "l0_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l1_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l1_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l2_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l2_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "memory_search",
+          "status": "succeeded",
+          "duration_ms": 391.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "llm",
+          "status": "succeeded",
+          "duration_ms": 2718.0,
+          "attributes": {
+            "model": "hy3",
+            "provider": "openai-compatible",
+            "iteration": 1,
+            "attempt": 1,
+            "input_tokens": 764,
+            "output_tokens": 83,
+            "total_tokens": 847,
+            "cost_usd": null,
+            "estimated": false
+          }
+        },
+        {
+          "name": "embedding",
+          "status": "succeeded",
+          "duration_ms": 125.0,
+          "attributes": {
+            "model": "qwen3.7-text-embedding-flash",
+            "input_tokens": 24,
+            "output_tokens": 0,
+            "total_tokens": 24,
+            "estimated": false
+          }
+        },
+        {
+          "name": "retrieval_l0_leaves",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "stage": "l0_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l1_leaves",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "stage": "l1_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l2_leaves",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "stage": "l2_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "tool",
+          "status": "succeeded",
+          "duration_ms": 438.0,
+          "attributes": {
+            "tool": "search_memory",
+            "operation_id": "f18cacca-078e-4016-bb73-f4bb901ad55e",
+            "status": "succeeded"
+          }
+        },
+        {
+          "name": "embedding",
+          "status": "succeeded",
+          "duration_ms": 109.0,
+          "attributes": {
+            "model": "qwen3.7-text-embedding-flash",
+            "input_tokens": 21,
+            "output_tokens": 0,
+            "total_tokens": 21,
+            "estimated": false
+          }
+        },
+        {
+          "name": "retrieval_l0_leaves",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "stage": "l0_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l1_leaves",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "stage": "l1_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l2_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l2_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "tool",
+          "status": "succeeded",
+          "duration_ms": 375.0,
+          "attributes": {
+            "tool": "search_memory",
+            "operation_id": "67554ea2-ae05-47a2-b693-5dde780360d8",
+            "status": "succeeded"
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "llm",
+          "status": "succeeded",
+          "duration_ms": 2062.0,
+          "attributes": {
+            "model": "hy3",
+            "provider": "openai-compatible",
+            "iteration": 2,
+            "attempt": 1,
+            "input_tokens": 765,
+            "output_tokens": 62,
+            "total_tokens": 827,
+            "cost_usd": null,
+            "estimated": false
+          }
+        },
+        {
+          "name": "tool",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "tool": "read_memory",
+            "operation_id": "8ca52b53-7a97-47bc-be12-9baaf74c87e0",
+            "status": "succeeded"
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "llm",
+          "status": "succeeded",
+          "duration_ms": 2859.0,
+          "attributes": {
+            "model": "hy3",
+            "provider": "openai-compatible",
+            "iteration": 3,
+            "attempt": 1,
+            "input_tokens": 769,
+            "output_tokens": 114,
+            "total_tokens": 883,
+            "cost_usd": null,
+            "estimated": false
+          }
+        },
+        {
+          "name": "tool",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "tool": "read_memory",
+            "operation_id": "32a2fc5a-a203-4262-bf2b-e83ad3e87be0",
+            "status": "succeeded"
+          }
+        },
+        {
+          "name": "tool",
+          "status": "succeeded",
+          "duration_ms": 15.0,
+          "attributes": {
+            "tool": "read_memory",
+            "operation_id": "be08dbe1-f257-4131-b1fd-cab283f24d40",
+            "status": "succeeded"
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "run",
+          "status": "failed",
+          "duration_ms": 10500.0,
+          "attributes": {
+            "run_id": "7688eff4-d2b4-4132-a987-833244d48310",
+            "user_id": "default",
+            "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+            "session_id": "fe268e7b-f7cd-4f73-9874-567441eab191",
+            "provider": "openai-compatible",
+            "model": "hy3",
+            "status": "failed"
+          }
+        }
+      ],
+      "cited_uris": [],
+      "citations_resolve_in_project": false
+    },
+    {
+      "id": "37d4c7ce-c1e2-449c-9230-dcb952852c7f",
+      "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+      "thread_id": "bbb1ae2a-9596-4a89-88b2-0f9710c89c1c",
+      "status": "succeeded",
+      "model": "hy3",
+      "trace_id": "00de913e8fe8461e8cff64912eb1c9ad",
+      "created_at": "2026-10-19T03:29:16.126261",
+      "reply": "Based on the project's evidence:\n\n- **Main database:** PostgreSQL with pgvector [si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md] [si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/resources/docs/real-model-acceptance.md]\n- **Newly added encrypted backup time:** Every day at 02:00 (凌晨 02:00) [si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md]\n\nThe backup constraint is described as a \"newly added\" (新增约束) requirement that an encrypted backup occurs daily at 02:00 [si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md].",
+      "iterations": 1,
+      "charged_tokens": 3831,
+      "usage_tokens": 1244,
+      "error_code": null,
+      "operations": [],
+      "acceptance_role": "second_run_id",
+      "event_kinds": [
+        "run_queued",
+        "run_start",
+        "span",
+        "embedding_start",
+        "memory_search",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "span",
+        "llm_start",
+        "span",
+        "llm_end",
+        "span",
+        "run_end"
+      ],
+      "spans": [
+        {
+          "name": "retrieval_gate",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": null,
+            "source": "local-rule",
+            "probability": 1.0,
+            "confidence": 1.0,
+            "reason": ""
+          }
+        },
+        {
+          "name": "embedding",
+          "status": "succeeded",
+          "duration_ms": 156.0,
+          "attributes": {
+            "model": "qwen3.7-text-embedding-flash",
+            "input_tokens": 37,
+            "output_tokens": 0,
+            "total_tokens": 37,
+            "estimated": false
+          }
+        },
+        {
+          "name": "retrieval_l0_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l0_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l1_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l1_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "retrieval_l2_leaves",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "stage": "l2_leaves",
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 16.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "memory_search",
+          "status": "succeeded",
+          "duration_ms": 469.0,
+          "attributes": {
+            "count": 3
+          }
+        },
+        {
+          "name": "context_compile",
+          "status": "succeeded",
+          "duration_ms": 0.0,
+          "attributes": {
+            "count": 3,
+            "estimated": true
+          }
+        },
+        {
+          "name": "llm",
+          "status": "succeeded",
+          "duration_ms": 6703.0,
+          "attributes": {
+            "model": "hy3",
+            "provider": "openai-compatible",
+            "iteration": 1,
+            "attempt": 1,
+            "input_tokens": 759,
+            "output_tokens": 485,
+            "total_tokens": 1244,
+            "cost_usd": null,
+            "estimated": false
+          }
+        },
+        {
+          "name": "run",
+          "status": "succeeded",
+          "duration_ms": 7562.0,
+          "attributes": {
+            "run_id": "37d4c7ce-c1e2-449c-9230-dcb952852c7f",
+            "user_id": "default",
+            "project_id": "afc13860-17f8-471d-8845-0c04bc84ff02",
+            "session_id": "bbb1ae2a-9596-4a89-88b2-0f9710c89c1c",
+            "provider": "openai-compatible",
+            "model": "hy3",
+            "status": "succeeded"
+          }
+        }
+      ],
+      "cited_uris": [
+        "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+        "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/resources/docs/real-model-acceptance.md",
+        "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+        "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md"
+      ],
+      "citations_resolve_in_project": true
+    }
+  ],
+  "correction": {
+    "id": "d7da1187-b909-4ca7-bde8-50ffcadb73cb",
+    "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+    "kind": "semantic",
+    "title": "Si-agent-main-database-postgresql-pgvector",
+    "content": "主数据库采用PostgreSQL和pgvector，新增约束：每天凌晨02:00进行加密备份。",
+    "action": "UPDATE",
+    "status": "applied",
+    "reason": "update",
+    "expected_revision": 1,
+    "supersedes_id": null,
+    "evidence_ids": [
+      "717b3cac-1f92-4d32-bcab-053e10df2a64"
+    ],
+    "node_id": "61332266-3978-48b5-a8e5-9e9c34ca5eb5",
+    "job_id": "5ab022ef-b2fa-430a-97dd-be269f62ffa7",
+    "created_at": "2026-10-19T03:28:16.675808"
+  },
+  "corrected_node": {
+    "id": "61332266-3978-48b5-a8e5-9e9c34ca5eb5",
+    "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+    "content": "主数据库采用PostgreSQL和pgvector，新增约束：每天凌晨02:00进行加密备份。",
+    "revision": 2,
+    "status": "active"
+  },
+  "versions": [
+    {
+      "id": "35eda97d-d446-4ede-8555-b17049250014",
+      "node_id": "61332266-3978-48b5-a8e5-9e9c34ca5eb5",
+      "revision": 2,
+      "snapshot": {
+        "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+        "kind": "semantic",
+        "title": "Si-agent-main-database-postgresql-pgvector",
+        "abstract": "主数据库采用PostgreSQL和pgvector，新增约束：每天凌晨02:00进行加密备份。",
+        "overview": "主数据库采用PostgreSQL和pgvector，新增约束：每天凌晨02:00进行加密备份。",
+        "content": "主数据库采用PostgreSQL和pgvector，新增约束：每天凌晨02:00进行加密备份。",
+        "checksum": "3ccfbc3f13b3b14f3a08bebbaa8bd7619c5e03efaa4fe5aa1d538aa49f2ea052",
+        "status": "active",
+        "source_event_ids": [
+          "717b3cac-1f92-4d32-bcab-053e10df2a64"
+        ],
+        "confidence": null,
+        "supersedes_id": null,
+        "valid_from": null,
+        "valid_to": null
+      },
+      "created_at": "2026-10-19T03:28:17.492589"
+    },
+    {
+      "id": "38cb4fd3-57a4-486d-8c2e-749e69774aa6",
+      "node_id": "61332266-3978-48b5-a8e5-9e9c34ca5eb5",
+      "revision": 1,
+      "snapshot": {
+        "uri": "si://users/default/projects/afc13860-17f8-471d-8845-0c04bc84ff02/memories/Si-agent-main-database-postgresql-pgvector.md",
+        "kind": "semantic",
+        "title": "Si-agent-main-database-postgresql-pgvector",
+        "abstract": "The main database for Si-agent is determined to be PostgreSQL with pgvector.",
+        "overview": "The main database for Si-agent is determined to be PostgreSQL with pgvector.",
+        "content": "The main database for Si-agent is determined to be PostgreSQL with pgvector.",
+        "checksum": "b7faa8d9ccc267c413d2fa074b0b17bf62aae1875c1d67f879baf2642ef6a7c9",
+        "status": "active",
+        "source_event_ids": [
+          "7b777fc9-5b93-416b-9c0c-eafb8f2424c1"
+        ],
+        "confidence": null,
+        "supersedes_id": null,
+        "valid_from": null,
+        "valid_to": null
+      },
+      "created_at": "2026-10-19T03:24:58.988742"
+    }
+  ],
+  "failed_background_jobs": [
+    {
+      "id": "6cf7d4ea-4478-4498-813b-2a2f087b07ec",
+      "kind": "distill",
+      "status": "failed",
+      "attempts": 3,
+      "error": "Job failed (HTTPStatusError)"
+    }
+  ]
+}

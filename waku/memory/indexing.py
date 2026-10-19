@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import func, literal_column, select
 
-from waku.memory.embeddings import Embedder, terms, validate_vectors
+from waku.memory.embeddings import DIMENSIONS, Embedder, terms, validate_vectors
 from waku.memory.lifecycle import chunks, materialize_evidence
 from waku.storage.models import ContextIndex, ContextNode, Job, Project, now
 
@@ -134,7 +134,10 @@ def process_index(sessions, job_id: str, token: str, embedder: Embedder | None) 
                 return False
             owned.lease_until = now() + timedelta(seconds=60)
         batch = snapshot[offset : offset + 16]
-        vectors.extend(validate_vectors(embedder.embed([r[4] for r in batch]), len(batch)))
+        vectors.extend(validate_vectors(
+            embedder.embed([r[4] for r in batch]), len(batch),
+            getattr(embedder, "dimensions", DIMENSIONS),
+        ))
     with sessions.begin() as session:
         session.execute(select(Project).where(Project.id == project_id).with_for_update())
         job = session.scalar(

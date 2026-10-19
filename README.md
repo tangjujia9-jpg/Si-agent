@@ -20,6 +20,9 @@ core below retains its attribution and local assistant interface.
 统一记忆第一阶段接通会话增量候选、单次运行检索复用与来源失效传播，
 见[中文验收与升级步骤](docs/copilot-unified-memory-release.md)。
 
+真实 hy3/Qwen 接入与可重复检索基线已建立，1024 维向量和额度缓存已验证。
+启动方式、合成数据成绩及验证边界见[7A 中文报告](docs/copilot-week7a-release.md)。本轮未启用 Jev。
+
 ## Upstream Waku learning material and compatibility interface
 
 **Your own AI assistant. On your laptop. In code you can read in an afternoon.**

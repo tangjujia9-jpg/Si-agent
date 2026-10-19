@@ -19,13 +19,13 @@ def terms(text: str) -> list[str]:
     return words
 
 
-def validate_vectors(vectors, count: int) -> list[list[float]]:
+def validate_vectors(vectors, count: int, dimensions: int = DIMENSIONS) -> list[list[float]]:
     if len(vectors) != count:
         raise ValueError("embedding response count mismatch")
     out = []
     for vector in vectors:
-        if len(vector) != DIMENSIONS:
-            raise ValueError("embedding dimensions must be 1536")
+        if len(vector) != dimensions:
+            raise ValueError(f"embedding dimensions must be {dimensions}")
         values = [float(v) for v in vector]
         if not all(math.isfinite(v) for v in values) or not any(values):
             raise ValueError("embedding must be finite and nonzero")
@@ -41,6 +41,7 @@ class Embedder(Protocol):
 
 class DemoEmbedder:
     model_id = "demo:hash-1536-v1"
+    dimensions = DIMENSIONS
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         vectors = []
@@ -57,19 +58,30 @@ class DemoEmbedder:
 class CompatibleEmbedder:
     """Backend-only, opt-in OpenAI-compatible embeddings with bounded requests."""
 
-    def __init__(self, base_url: str, model: str, api_key: str = ""):
+    def __init__(
+        self, base_url: str, model: str, api_key: str = "", *, dimensions: int | None = None,
+        batch_size: int = 16,
+    ):
+        if dimensions is not None and not 1 <= dimensions <= 4096:
+            raise ValueError("embedding dimensions must be between 1 and 4096")
+        if not 1 <= batch_size <= 16:
+            raise ValueError("embedding batch size must be between 1 and 16")
         self.base_url, self.model, self.api_key = base_url.rstrip("/"), model, api_key
+        self.dimensions, self.batch_size = dimensions or DIMENSIONS, batch_size
+        self.request_dimensions = dimensions
         # Different endpoints may serve different weights under the same model name.
         endpoint = hashlib.sha256(self.base_url.encode()).hexdigest()[:16]
-        self.model_id = f"compatible:{endpoint}:{model}:1536"
+        # A requested projection may differ from an endpoint's default vector.
+        projection = ":requested" if dimensions is not None else ""
+        self.model_id = f"compatible:{endpoint}:{model}:{self.dimensions}{projection}"
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         import httpx
 
         out = []
         with httpx.Client(timeout=20, follow_redirects=False) as client:
-            for offset in range(0, len(texts), 16):
-                batch = texts[offset : offset + 16]
+            for offset in range(0, len(texts), self.batch_size):
+                batch = texts[offset : offset + self.batch_size]
                 headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
                 from waku.runtime.telemetry import traced_post
 
@@ -79,12 +91,15 @@ class CompatibleEmbedder:
                     kind="embedding",
                     model=self.model,
                     headers=headers,
-                    payload={"model": self.model, "input": batch},
+                    payload={
+                        "model": self.model, "input": batch,
+                        **({"dimensions": self.request_dimensions} if self.request_dimensions is not None else {}),
+                    },
                 )
                 data = sorted(payload["data"], key=lambda row: row["index"])
                 if [row["index"] for row in data] != list(range(len(batch))):
                     raise ValueError("embedding response indexes mismatch")
-                out.extend(validate_vectors([row["embedding"] for row in data], len(batch)))
+                out.extend(validate_vectors([row["embedding"] for row in data], len(batch), self.dimensions))
         return out
 
 
@@ -100,5 +115,10 @@ def configured_embedder() -> Embedder | None:
         model = os.environ.get("SI_EMBEDDING_MODEL", "")
         if not url.startswith(("https://", "http://")) or not model:
             raise ValueError("configure SI_EMBEDDING_BASE_URL and SI_EMBEDDING_MODEL")
-        return CompatibleEmbedder(url, model, os.environ.get("SI_EMBEDDING_API_KEY", ""))
+        dimensions = os.environ.get("SI_EMBEDDING_DIMENSIONS", "")
+        return CompatibleEmbedder(
+            url, model, os.environ.get("SI_EMBEDDING_API_KEY", ""),
+            dimensions=int(dimensions) if dimensions else None,
+            batch_size=int(os.environ.get("SI_EMBEDDING_BATCH_SIZE", "16")),
+        )
     raise ValueError("unsupported SI_EMBEDDING_BACKEND")

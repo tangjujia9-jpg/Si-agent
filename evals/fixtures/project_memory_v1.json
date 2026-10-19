@@ -1,0 +1,1020 @@
+{
+  "version": "si-project-memory-v1",
+  "annotation": "Agent-authored synthetic fixtures with explicit reference labels; independent human review pending. Not a public benchmark.",
+  "frozen_at": "2026-10-19",
+  "documents": [
+    {
+      "id": "database",
+      "project": "si",
+      "path": "memories/database.md",
+      "kind": "semantic",
+      "title": "数据库",
+      "content": "主数据库采用PostgreSQL与pgvector，关系数据、全文索引与向量统一持久化；SQLite仅保留轻量开发适配。"
+    },
+    {
+      "id": "api",
+      "project": "si",
+      "path": "memories/api.md",
+      "kind": "semantic",
+      "title": "后端API",
+      "content": "后端采用FastAPI，浏览器通过REST提交请求，通过SSE接收运行过程事件和最终回答。"
+    },
+    {
+      "id": "frontend",
+      "project": "si",
+      "path": "memories/frontend.md",
+      "kind": "semantic",
+      "title": "前端技术",
+      "content": "前端采用React、Vite和TypeScript，产品控制台默认使用中文。"
+    },
+    {
+      "id": "worker",
+      "project": "si",
+      "path": "memories/worker.md",
+      "kind": "semantic",
+      "title": "后台任务",
+      "content": "独立Worker处理资料导入、向量索引和会话记忆抽取；API仅持久化任务，不阻塞等待全部计算。"
+    },
+    {
+      "id": "namespace",
+      "project": "si",
+      "path": "memories/namespace.md",
+      "kind": "semantic",
+      "title": "虚拟目录",
+      "content": "项目上下文采用si://虚拟URI，划分resources、memories和sessions目录；目录和内容存放于数据库。"
+    },
+    {
+      "id": "tiers",
+      "project": "si",
+      "path": "memories/tiers.md",
+      "kind": "semantic",
+      "title": "分层表示",
+      "content": "L0是一句话摘要，L1是结构概览，L2是来源详情；摘要表示版本与正文版本分别记录。"
+    },
+    {
+      "id": "hybrid",
+      "project": "si",
+      "path": "memories/hybrid.md",
+      "kind": "semantic",
+      "title": "混合检索",
+      "content": "检索在项目范围内结合关键词与向量召回，通过RRF融合，最后按上下文预算选取带证据片段。"
+    },
+    {
+      "id": "gate",
+      "project": "si",
+      "path": "memories/gate.md",
+      "kind": "semantic",
+      "title": "检索门",
+      "content": "每次运行先由检索门判断是否需要项目长期记忆；同一Run可以复用已检索上下文，证据失效时重新检索。"
+    },
+    {
+      "id": "evidence",
+      "project": "si",
+      "path": "memories/evidence.md",
+      "kind": "semantic",
+      "title": "证据约束",
+      "content": "候选事实必须由用户消息或导入资料中的精确原文支持；助手生成的回答不能作为新事实证据。"
+    },
+    {
+      "id": "correction",
+      "project": "si",
+      "path": "memories/correction.md",
+      "kind": "semantic",
+      "title": "修正记忆",
+      "content": "用户修正会先保存新的独立陈述，生成待审UPDATE；审核与预期版本校验通过后才更新正式事实。"
+    },
+    {
+      "id": "forget",
+      "project": "si",
+      "path": "memories/forget.md",
+      "kind": "semantic",
+      "title": "忘记机制",
+      "content": "忘记会脱敏来源正文、历史证据与已知派生项，并写入tombstone阻止旧消息再次恢复被删除内容。"
+    },
+    {
+      "id": "approval",
+      "project": "si",
+      "path": "memories/approval.md",
+      "kind": "semantic",
+      "title": "操作审批",
+      "content": "写工具执行前必须人工审批；开放写工具不代表批准某次操作，生成的记忆候选仍需审核。"
+    },
+    {
+      "id": "outbox",
+      "project": "si",
+      "path": "memories/outbox.md",
+      "kind": "semantic",
+      "title": "可靠执行",
+      "content": "外部操作先记录operation和outbox，再由Worker领取执行；幂等键避免重复动作，未知结果不得当作成功。"
+    },
+    {
+      "id": "providers",
+      "project": "si",
+      "path": "memories/providers.md",
+      "kind": "semantic",
+      "title": "模型接入",
+      "content": "模型请求使用统一Provider协议，支持OpenAI、Anthropic及兼容端点；密钥只保留在后端。"
+    },
+    {
+      "id": "tracing",
+      "project": "si",
+      "path": "memories/tracing.md",
+      "kind": "semantic",
+      "title": "可观测",
+      "content": "运行事件先持久化到Si-agent，Langfuse是可选观测后端；导出失败不应中断业务运行。"
+    },
+    {
+      "id": "distillation",
+      "project": "si",
+      "path": "memories/distillation.md",
+      "kind": "semantic",
+      "title": "增量抽取",
+      "content": "会话抽取按消息序号和水位处理增量，只以用户陈述为目标；后台任务有延迟触发和手动立即触发入口。"
+    },
+    {
+      "id": "budget",
+      "project": "si",
+      "path": "memories/budget.md",
+      "kind": "semantic",
+      "title": "执行预算",
+      "content": "每次Run限制迭代次数、工具调用数、token与截止时间；预算预留不等于模型实际用量或实际账单。"
+    },
+    {
+      "id": "deployment",
+      "project": "si",
+      "path": "memories/deployment.md",
+      "kind": "semantic",
+      "title": "部署",
+      "content": "完整环境使用Docker Compose启动PostgreSQL、迁移、API、Worker和Web；数据库卷持久化，停服务不删除卷。"
+    },
+    {
+      "id": "quota-old",
+      "project": "si",
+      "path": "decisions/quota-old.md",
+      "kind": "episodic",
+      "title": "旧上传限额",
+      "content": "在2026年9月以前，单份资料的上传限额是1MB。",
+      "valid_from": "2026-01-01T00:00:00Z",
+      "valid_to": "2026-09-01T00:00:00Z"
+    },
+    {
+      "id": "quota-new",
+      "project": "si",
+      "path": "decisions/quota-new.md",
+      "kind": "episodic",
+      "title": "当前上传限额",
+      "content": "从2026年9月1日起，单份资料的上传限额调整为8MB。",
+      "valid_from": "2026-09-01T00:00:00Z"
+    },
+    {
+      "id": "other-database",
+      "project": "other",
+      "path": "memories/database.md",
+      "kind": "semantic",
+      "title": "其他项目数据库",
+      "content": "橙舟项目使用MongoDB保存业务数据，项目代号为ORANGE-PRIVATE。"
+    },
+    {
+      "id": "other-schedule",
+      "project": "other",
+      "path": "memories/schedule.md",
+      "kind": "semantic",
+      "title": "其他项目排期",
+      "content": "橙舟项目演示时间为2026年11月12日，会议口令为ORANGE-MEETING。"
+    },
+    {
+      "id": "forgotten",
+      "project": "si",
+      "path": "memories/forgotten.md",
+      "kind": "semantic",
+      "title": "临时演示口令",
+      "content": "测试演示临时口令为FORGET-ONLY-5827，不用于任何真实账号。",
+      "forget": true
+    },
+    {
+      "id": "review",
+      "project": "si",
+      "path": "memories/review.md",
+      "kind": "semantic",
+      "title": "待复核采购方案",
+      "content": "待复核方案曾建议购买九台GPU服务器，编号REVIEW-ONLY。",
+      "needs_review": true
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-database-1",
+      "split": "calibration",
+      "category": "literal",
+      "project": "si",
+      "query": "项目主数据库和向量扩展采用什么？",
+      "expected": [
+        "database"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "database": "主数据库采用PostgreSQL与pgvector，关系数据、全文索引与向量统一持久化；SQLite仅保留轻量开发适配。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-database-2",
+      "split": "calibration",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "长期知识和关系记录统一落在哪个存储方案？",
+      "expected": [
+        "database"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "database": "主数据库采用PostgreSQL与pgvector，关系数据、全文索引与向量统一持久化；SQLite仅保留轻量开发适配。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-api-1",
+      "split": "calibration",
+      "category": "literal",
+      "project": "si",
+      "query": "后端API和事件传输使用什么技术？",
+      "expected": [
+        "api"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "api": "后端采用FastAPI，浏览器通过REST提交请求，通过SSE接收运行过程事件和最终回答。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-api-2",
+      "split": "calibration",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "页面怎样提交问题并获知智能体执行进度？",
+      "expected": [
+        "api"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "api": "后端采用FastAPI，浏览器通过REST提交请求，通过SSE接收运行过程事件和最终回答。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-frontend-1",
+      "split": "calibration",
+      "category": "literal",
+      "project": "si",
+      "query": "前端技术栈和默认语言是什么？",
+      "expected": [
+        "frontend"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "frontend": "前端采用React、Vite和TypeScript，产品控制台默认使用中文。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-frontend-2",
+      "split": "calibration",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "工作台用什么构建，界面面向哪种语言？",
+      "expected": [
+        "frontend"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "frontend": "前端采用React、Vite和TypeScript，产品控制台默认使用中文。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-worker-1",
+      "split": "calibration",
+      "category": "literal",
+      "project": "si",
+      "query": "Worker负责哪些任务？",
+      "expected": [
+        "worker"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "worker": "独立Worker处理资料导入、向量索引和会话记忆抽取；API仅持久化任务，不阻塞等待全部计算。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-worker-2",
+      "split": "calibration",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "为什么上传资料后还能立即继续使用页面？",
+      "expected": [
+        "worker"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "worker": "独立Worker处理资料导入、向量索引和会话记忆抽取；API仅持久化任务，不阻塞等待全部计算。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-namespace-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "虚拟上下文URI和目录存在哪里？",
+      "expected": [
+        "namespace"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "namespace": "项目上下文采用si://虚拟URI，划分resources、memories和sessions目录；目录和内容存放于数据库。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-namespace-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "这些像文件路径的项目知识地址是真实磁盘文件吗？",
+      "expected": [
+        "namespace"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "namespace": "项目上下文采用si://虚拟URI，划分resources、memories和sessions目录；目录和内容存放于数据库。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-tiers-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "L0、L1、L2分别是什么？",
+      "expected": [
+        "tiers"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "tiers": "L0是一句话摘要，L1是结构概览，L2是来源详情；摘要表示版本与正文版本分别记录。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-tiers-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "快速浏览、内容概览和完整原文如何分层？",
+      "expected": [
+        "tiers"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "tiers": "L0是一句话摘要，L1是结构概览，L2是来源详情；摘要表示版本与正文版本分别记录。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-hybrid-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "混合检索如何融合召回结果？",
+      "expected": [
+        "hybrid"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "hybrid": "检索在项目范围内结合关键词与向量召回，通过RRF融合，最后按上下文预算选取带证据片段。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-hybrid-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "字面匹配和语义相似的候选怎样合成最终上下文？",
+      "expected": [
+        "hybrid"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "hybrid": "检索在项目范围内结合关键词与向量召回，通过RRF融合，最后按上下文预算选取带证据片段。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-gate-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "检索门什么时候执行，同Run会复用吗？",
+      "expected": [
+        "gate"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "gate": "每次运行先由检索门判断是否需要项目长期记忆；同一Run可以复用已检索上下文，证据失效时重新检索。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-gate-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "智能体每次工具往返都必须重复查整套知识库吗？",
+      "expected": [
+        "gate"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "gate": "每次运行先由检索门判断是否需要项目长期记忆；同一Run可以复用已检索上下文，证据失效时重新检索。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-evidence-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "事实证据能来自助手回答吗？",
+      "expected": [
+        "evidence"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "evidence": "候选事实必须由用户消息或导入资料中的精确原文支持；助手生成的回答不能作为新事实证据。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-evidence-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "如何防止模型把自己编写的内容再当作已知知识？",
+      "expected": [
+        "evidence"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "evidence": "候选事实必须由用户消息或导入资料中的精确原文支持；助手生成的回答不能作为新事实证据。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-correction-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "修改一条正式记忆需要哪些步骤？",
+      "expected": [
+        "correction"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "correction": "用户修正会先保存新的独立陈述，生成待审UPDATE；审核与预期版本校验通过后才更新正式事实。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-correction-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "用户纠正数据库选型时为何不会直接覆盖旧结论？",
+      "expected": [
+        "correction"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "correction": "用户修正会先保存新的独立陈述，生成待审UPDATE；审核与预期版本校验通过后才更新正式事实。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-forget-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "忘记后如何阻止旧消息恢复内容？",
+      "expected": [
+        "forget"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "forget": "忘记会脱敏来源正文、历史证据与已知派生项，并写入tombstone阻止旧消息再次恢复被删除内容。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-forget-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "删除记忆为何还需要墓碑和依赖传播？",
+      "expected": [
+        "forget"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "forget": "忘记会脱敏来源正文、历史证据与已知派生项，并写入tombstone阻止旧消息再次恢复被删除内容。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-approval-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "勾选允许修改记忆会自动批准操作吗？",
+      "expected": [
+        "approval"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "approval": "写工具执行前必须人工审批；开放写工具不代表批准某次操作，生成的记忆候选仍需审核。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-approval-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "开启写能力、批准工具和接受事实之间有何区别？",
+      "expected": [
+        "approval"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "approval": "写工具执行前必须人工审批；开放写工具不代表批准某次操作，生成的记忆候选仍需审核。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-outbox-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "outbox和幂等键的作用是什么？",
+      "expected": [
+        "outbox"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "outbox": "外部操作先记录operation和outbox，再由Worker领取执行；幂等键避免重复动作，未知结果不得当作成功。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-outbox-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "网络中断后怎么避免再次执行相同外部动作？",
+      "expected": [
+        "outbox"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "outbox": "外部操作先记录operation和outbox，再由Worker领取执行；幂等键避免重复动作，未知结果不得当作成功。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-providers-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "支持哪些模型协议，密钥在哪里？",
+      "expected": [
+        "providers"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "providers": "模型请求使用统一Provider协议，支持OpenAI、Anthropic及兼容端点；密钥只保留在后端。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-providers-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "切换厂商时哪些层需要保持统一，浏览器持有密钥吗？",
+      "expected": [
+        "providers"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "providers": "模型请求使用统一Provider协议，支持OpenAI、Anthropic及兼容端点；密钥只保留在后端。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-tracing-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "Langfuse不可用是否影响智能体？",
+      "expected": [
+        "tracing"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "tracing": "运行事件先持久化到Si-agent，Langfuse是可选观测后端；导出失败不应中断业务运行。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-tracing-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "外部追踪平台故障时还能继续对话和查看本地轨迹吗？",
+      "expected": [
+        "tracing"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "tracing": "运行事件先持久化到Si-agent，Langfuse是可选观测后端；导出失败不应中断业务运行。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-distillation-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "增量蒸馏怎样确定未处理消息？",
+      "expected": [
+        "distillation"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "distillation": "会话抽取按消息序号和水位处理增量，只以用户陈述为目标；后台任务有延迟触发和手动立即触发入口。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-distillation-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "不再固定每几轮做总结后，系统怎么记住处理进度？",
+      "expected": [
+        "distillation"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "distillation": "会话抽取按消息序号和水位处理增量，只以用户陈述为目标；后台任务有延迟触发和手动立即触发入口。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-budget-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "Run有哪些预算限制？",
+      "expected": [
+        "budget"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "budget": "每次Run限制迭代次数、工具调用数、token与截止时间；预算预留不等于模型实际用量或实际账单。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-budget-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "页面的预留token能直接作为厂商收费金额吗？",
+      "expected": [
+        "budget"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "budget": "每次Run限制迭代次数、工具调用数、token与截止时间；预算预留不等于模型实际用量或实际账单。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-deployment-1",
+      "split": "test",
+      "category": "literal",
+      "project": "si",
+      "query": "完整部署包含哪些服务？",
+      "expected": [
+        "deployment"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "deployment": "完整环境使用Docker Compose启动PostgreSQL、迁移、API、Worker和Web；数据库卷持久化，停服务不删除卷。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-deployment-2",
+      "split": "test",
+      "category": "paraphrase",
+      "project": "si",
+      "query": "停止容器后如何保留项目资料？",
+      "expected": [
+        "deployment"
+      ],
+      "forbidden": [],
+      "gold_quotes": {
+        "deployment": "完整环境使用Docker Compose启动PostgreSQL、迁移、API、Worker和Web；数据库卷持久化，停服务不删除卷。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-time-past",
+      "split": "calibration",
+      "category": "temporal",
+      "project": "si",
+      "query": "2026年8月单份资料限额是多少？",
+      "expected": [
+        "quota-old"
+      ],
+      "forbidden": [
+        "quota-new"
+      ],
+      "gold_quotes": {
+        "quota-old": "在2026年9月以前，单份资料的上传限额是1MB。"
+      },
+      "as_of": "2026-08-01T00:00:00Z"
+    },
+    {
+      "id": "q-time-current",
+      "split": "calibration",
+      "category": "temporal",
+      "project": "si",
+      "query": "现在单份资料的上传限额是多少？",
+      "expected": [
+        "quota-new"
+      ],
+      "forbidden": [
+        "quota-old"
+      ],
+      "gold_quotes": {
+        "quota-new": "从2026年9月1日起，单份资料的上传限额调整为8MB。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-isolation-db",
+      "split": "calibration",
+      "category": "isolation",
+      "project": "si",
+      "query": "ORANGE-PRIVATE项目用了什么数据库？",
+      "expected": [],
+      "forbidden": [
+        "other-database"
+      ],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-isolation-schedule",
+      "split": "calibration",
+      "category": "isolation",
+      "project": "si",
+      "query": "橙舟项目演示时间和会议口令是什么？",
+      "expected": [],
+      "forbidden": [
+        "other-schedule"
+      ],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-own-scope",
+      "split": "test",
+      "category": "isolation",
+      "project": "si",
+      "query": "Si-agent的数据持久化选型是什么？",
+      "expected": [
+        "database"
+      ],
+      "forbidden": [
+        "other-database"
+      ],
+      "gold_quotes": {
+        "database": "主数据库采用PostgreSQL与pgvector，关系数据、全文索引与向量统一持久化；SQLite仅保留轻量开发适配。"
+      },
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-forgot-token",
+      "split": "test",
+      "category": "forget",
+      "project": "si",
+      "query": "FORGET-ONLY-5827的演示临时口令是什么？",
+      "expected": [],
+      "forbidden": [
+        "forgotten"
+      ],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-forgot-paraphrase",
+      "split": "test",
+      "category": "forget",
+      "project": "si",
+      "query": "之前保存的临时演示口令还能查到吗？",
+      "expected": [],
+      "forbidden": [
+        "forgotten"
+      ],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-review-filter",
+      "split": "test",
+      "category": "conflict",
+      "project": "si",
+      "query": "REVIEW-ONLY采购方案需要多少台GPU服务器？",
+      "expected": [],
+      "forbidden": [
+        "review"
+      ],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-unknown-release",
+      "split": "test",
+      "category": "unanswerable",
+      "project": "si",
+      "query": "Si-agent下一次发布的确切分钟和秒是什么？",
+      "expected": [],
+      "forbidden": [],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-unknown-person",
+      "split": "test",
+      "category": "unanswerable",
+      "project": "si",
+      "query": "项目负责人的身份证号码是什么？",
+      "expected": [],
+      "forbidden": [],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-unknown-cost",
+      "split": "test",
+      "category": "unanswerable",
+      "project": "si",
+      "query": "2027年全年模型服务的精确账单是多少？",
+      "expected": [],
+      "forbidden": [],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    },
+    {
+      "id": "q-unknown-cloud",
+      "split": "test",
+      "category": "unanswerable",
+      "project": "si",
+      "query": "目前已经签约的云托管客户名单是什么？",
+      "expected": [],
+      "forbidden": [],
+      "gold_quotes": {},
+      "as_of": "2026-10-19T00:00:00Z"
+    }
+  ],
+  "retention": [
+    {
+      "id": "retain-01",
+      "split": "calibration",
+      "text": "本项目正式决定使用PostgreSQL保存项目数据。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-02",
+      "split": "test",
+      "text": "今后的项目技术文档统一使用中文。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-03",
+      "split": "test",
+      "text": "所有写工具必须先经过人工审批。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-04",
+      "split": "test",
+      "text": "用户已经确认每个项目的资料必须隔离。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-05",
+      "split": "calibration",
+      "text": "发布前必须验证忘记后不能自动恢复内容。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-06",
+      "split": "test",
+      "text": "长期记忆的事实来源只能来自用户与资料。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-07",
+      "split": "test",
+      "text": "模型厂商密钥只保留在后端配置中。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-08",
+      "split": "test",
+      "text": "每次运行必须保留检索和工具操作轨迹。",
+      "retain": true,
+      "reason": "明确稳定的项目约束或决策"
+    },
+    {
+      "id": "retain-09",
+      "split": "calibration",
+      "text": "你好，今天辛苦了。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-10",
+      "split": "test",
+      "text": "我去喝杯水，五分钟后回来。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-11",
+      "split": "test",
+      "text": "也许以后可能会换数据库，暂时没有决定。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-12",
+      "split": "test",
+      "text": "助手刚刚猜测我们的服务器会使用Redis。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-13",
+      "split": "calibration",
+      "text": "这是测试用的假密钥：sk-FAKE-NOT-A-CREDENTIAL-000。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-14",
+      "split": "test",
+      "text": "明天可能再讨论，今天先不确定任何方案。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-15",
+      "split": "test",
+      "text": "请把上一段翻译成英文，不需要记住。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    },
+    {
+      "id": "retain-16",
+      "split": "test",
+      "text": "我现在有点困，等一会儿再看。",
+      "retain": false,
+      "reason": "临时闲聊、未确认推测、助手推断或假密钥不应留存"
+    }
+  ]
+}

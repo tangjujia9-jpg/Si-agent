@@ -6,7 +6,7 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-19
 
 ---
 
@@ -24,7 +24,13 @@ and a callable LangGraph workflow adapter are implemented. React chat/SSE, opera
 approvals, candidate review, memory inspection and Run Trace are implemented.
 The product console defaults to Chinese; [copilot-console.zh-CN.md](copilot-console.zh-CN.md)
 describes its controls and current limits. Model identifiers, source content and raw trace fields retain their original values.
-Real-provider quality benchmarks and live Langfuse acceptance remain pending.
+Live hy3 text/tool/vision/stream probes and Qwen 1024-dimensional embeddings
+have passed small-sample checks. Import, evidence-backed correction and cross-thread
+recall passed locally. A reproducible synthetic SQLite lexical/hybrid baseline is
+available in [copilot-week7a-release.md](copilot-week7a-release.md); independent label
+review, PostgreSQL quality measurement, retention scoring and live Langfuse acceptance
+remain pending. Jev is disabled for this baseline. Mixed-dimension vector storage
+uses migration 0007 with model/dimension guards; production ANN indexes remain absent.
 The unified-memory milestone adds per-run retrieval reuse, scoped flat hybrid search,
 incremental user-message proposals, separate representation revisions and derived-memory
 review flags. Context-assisted proposals and user-evidenced corrections are implemented;
@@ -81,8 +87,9 @@ Additionally, and worth stating because people ask:
 - **The judge evals are not in CI.** `make gate` runs deterministic evals at
   100% plus a judge threshold, and CI runs only the first half. The judge tier
   needs an API key, which CI does not have.
-- **No provider smoke check.** Nothing verifies that a model in the picker
-  resolves, which is why #137 reached a user.
+- **No upstream picker smoke check.** The optional Copilot layer now has an
+  explicit synthetic model probe script; it does not validate the upstream picker
+  or silently discover provider capabilities.
 
 ## Open questions
 

@@ -43,6 +43,16 @@ docker compose -f infra/compose.yaml down
 
 ## 本机开发
 
+### 使用已配置的真实模型
+
+真实模型配置保存在忽略的 `infra/copilot.env`，无密钥模板为 `infra/real-models.env.example`。
+在三个终端分别运行 `python scripts/run_copilot.py api --config infra/copilot.env`、
+`python scripts/run_copilot.py worker --config infra/copilot.env` 和 `python scripts/run_copilot.py web`。
+脚本只启动组件，不创建或迁移数据库。前端地址为 `http://127.0.0.1:5186`，API 使用 8016 端口。
+hy3 需要 18790 SSH 隧道持续运行；前端选择 `openai-compatible / hy3`。
+本轮使用已有演示库的独立副本 `.artifacts/dev/si-real-models.db`，没有覆盖原数据库。
+详细启动、维度迁移、额度和验收范围见[真实模型与基线报告](copilot-week7a-release.md)。
+
 ### 重启现有中文演示环境
 
 2026-10-18 的本机演示复用了上一轮临时 SQLite 数据库。前端地址为
@@ -166,6 +176,7 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 | `0004_memory_lifecycle` | 分块索引、历史/证据/候选/tombstone，并为旧项目排队 rebuild |
 | `0005_runtime` | 暂停/unknown 状态、有序运行事件、工具操作与 outbox |
 | `0006_unified_memory` | 消息序号、水位、摘要表示版本和派生记忆重审标记 |
+| `0007_embedding_dimensions` | 放宽 vector 维度约束，保留旧向量并支持模型/维度隔离检索 |
 
 第三个迁移保留原文、节点 ID、来源事件、revision 与向量。URI 碰撞会让事务失败，
 不会覆盖已有节点。旧 URI 的客户端书签需要更新；原写入请求的 payload hash

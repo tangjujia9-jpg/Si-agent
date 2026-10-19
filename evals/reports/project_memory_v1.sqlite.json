@@ -1,0 +1,2549 @@
+{
+  "created_at": "2026-10-19T03:22:50.142341+00:00",
+  "dataset_version": "si-project-memory-v1",
+  "dataset_sha256": "ba32f060f369b52e068f28f5f3d5fda7fa151d6df948f2b45a832dca79fffa0c",
+  "annotation": "Agent-authored synthetic fixtures with explicit reference labels; independent human review pending. Not a public benchmark.",
+  "database_backend": "sqlite",
+  "schema": null,
+  "split": "all",
+  "embedding_model": "compatible:3c09c9c85b200c23:qwen3.7-text-embedding-flash:1024:requested",
+  "dimensions": 1024,
+  "retrieval_strategy": "flat",
+  "context_budget": 3000,
+  "tiers": [
+    "l0",
+    "l1",
+    "l2"
+  ],
+  "jev": "disabled",
+  "retention_cases": {
+    "count": 16,
+    "status": "labelled_not_scored"
+  },
+  "status": "completed",
+  "runs": [
+    {
+      "mode": "lexical",
+      "top_k": 5,
+      "records": [
+        {
+          "id": "q-database-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "项目主数据库和向量扩展采用什么？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "database",
+            "namespace",
+            "deployment",
+            "hybrid",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 31.624,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1297
+        },
+        {
+          "id": "q-database-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "长期知识和关系记录统一落在哪个存储方案？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "database",
+            "gate",
+            "outbox",
+            "tiers",
+            "providers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 32.729,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1273
+        },
+        {
+          "id": "q-api-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "后端API和事件传输使用什么技术？",
+          "expected": [
+            "api"
+          ],
+          "retrieved": [
+            "api",
+            "frontend",
+            "tracing",
+            "providers",
+            "deployment"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 27.399,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1186
+        },
+        {
+          "id": "q-api-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "页面怎样提交问题并获知智能体执行进度？",
+          "expected": [
+            "api"
+          ],
+          "retrieved": [
+            "api",
+            "outbox",
+            "approval",
+            "budget",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 31.715,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1260
+        },
+        {
+          "id": "q-frontend-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "前端技术栈和默认语言是什么？",
+          "expected": [
+            "frontend"
+          ],
+          "retrieved": [
+            "frontend",
+            "tracing",
+            "api",
+            "deployment",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 26.214,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1209
+        },
+        {
+          "id": "q-frontend-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "工作台用什么构建，界面面向哪种语言？",
+          "expected": [
+            "frontend"
+          ],
+          "retrieved": [
+            "budget",
+            "distillation",
+            "worker",
+            "database",
+            "evidence"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 28.895,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1305
+        },
+        {
+          "id": "q-worker-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "Worker负责哪些任务？",
+          "expected": [
+            "worker"
+          ],
+          "retrieved": [
+            "worker",
+            "distillation",
+            "deployment",
+            "outbox",
+            "tracing"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 19.415,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1290
+        },
+        {
+          "id": "q-worker-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "为什么上传资料后还能立即继续使用页面？",
+          "expected": [
+            "worker"
+          ],
+          "retrieved": [
+            "quota-new",
+            "distillation",
+            "evidence",
+            "worker",
+            "providers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.43067655807339306,
+          "latency_ms": 31.597,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1226
+        },
+        {
+          "id": "q-namespace-1",
+          "split": "test",
+          "category": "literal",
+          "query": "虚拟上下文URI和目录存在哪里？",
+          "expected": [
+            "namespace"
+          ],
+          "retrieved": [
+            "namespace",
+            "hybrid",
+            "gate",
+            "distillation",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 25.269,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1284
+        },
+        {
+          "id": "q-namespace-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "这些像文件路径的项目知识地址是真实磁盘文件吗？",
+          "expected": [
+            "namespace"
+          ],
+          "retrieved": [
+            "gate",
+            "hybrid",
+            "namespace",
+            "evidence",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.5,
+          "latency_ms": 34.294,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1284
+        },
+        {
+          "id": "q-tiers-1",
+          "split": "test",
+          "category": "literal",
+          "query": "L0、L1、L2分别是什么？",
+          "expected": [
+            "tiers"
+          ],
+          "retrieved": [
+            "tiers",
+            "gate",
+            "namespace",
+            "tracing"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 19.178,
+          "violations": [],
+          "evidence_valid_hits": 4,
+          "hit_count": 4,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 997
+        },
+        {
+          "id": "q-tiers-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "快速浏览、内容概览和完整原文如何分层？",
+          "expected": [
+            "tiers"
+          ],
+          "retrieved": [
+            "tiers",
+            "namespace",
+            "deployment",
+            "api",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 29.028,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1244
+        },
+        {
+          "id": "q-hybrid-1",
+          "split": "test",
+          "category": "literal",
+          "query": "混合检索如何融合召回结果？",
+          "expected": [
+            "hybrid"
+          ],
+          "retrieved": [
+            "hybrid",
+            "gate",
+            "outbox",
+            "tiers",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 24.68,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1272
+        },
+        {
+          "id": "q-hybrid-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "字面匹配和语义相似的候选怎样合成最终上下文？",
+          "expected": [
+            "hybrid"
+          ],
+          "retrieved": [
+            "hybrid",
+            "evidence",
+            "namespace",
+            "approval",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 35.721,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1280
+        },
+        {
+          "id": "q-gate-1",
+          "split": "test",
+          "category": "literal",
+          "query": "检索门什么时候执行，同Run会复用吗？",
+          "expected": [
+            "gate"
+          ],
+          "retrieved": [
+            "gate",
+            "budget",
+            "approval",
+            "outbox",
+            "hybrid"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 27.102,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1289
+        },
+        {
+          "id": "q-gate-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "智能体每次工具往返都必须重复查整套知识库吗？",
+          "expected": [
+            "gate"
+          ],
+          "retrieved": [
+            "approval",
+            "budget",
+            "gate",
+            "evidence",
+            "outbox"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.5,
+          "latency_ms": 35.25,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1294
+        },
+        {
+          "id": "q-evidence-1",
+          "split": "test",
+          "category": "literal",
+          "query": "事实证据能来自助手回答吗？",
+          "expected": [
+            "evidence"
+          ],
+          "retrieved": [
+            "evidence",
+            "forget",
+            "hybrid",
+            "api",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 25.545,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1259
+        },
+        {
+          "id": "q-evidence-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "如何防止模型把自己编写的内容再当作已知知识？",
+          "expected": [
+            "evidence"
+          ],
+          "retrieved": [
+            "forget",
+            "outbox",
+            "budget",
+            "providers",
+            "approval"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 34.392,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1269
+        },
+        {
+          "id": "q-correction-1",
+          "split": "test",
+          "category": "literal",
+          "query": "修改一条正式记忆需要哪些步骤？",
+          "expected": [
+            "correction"
+          ],
+          "retrieved": [
+            "correction",
+            "gate",
+            "approval",
+            "tiers",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 26.82,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1269
+        },
+        {
+          "id": "q-correction-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "用户纠正数据库选型时为何不会直接覆盖旧结论？",
+          "expected": [
+            "correction"
+          ],
+          "retrieved": [
+            "deployment",
+            "evidence",
+            "database",
+            "namespace",
+            "budget"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 34.063,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1294
+        },
+        {
+          "id": "q-forget-1",
+          "split": "test",
+          "category": "literal",
+          "query": "忘记后如何阻止旧消息恢复内容？",
+          "expected": [
+            "forget"
+          ],
+          "retrieved": [
+            "forget",
+            "distillation",
+            "evidence",
+            "namespace",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 28.475,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1292
+        },
+        {
+          "id": "q-forget-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "删除记忆为何还需要墓碑和依赖传播？",
+          "expected": [
+            "forget"
+          ],
+          "retrieved": [
+            "gate",
+            "deployment",
+            "worker",
+            "approval",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.2,
+          "ndcg_at_k": 0.38685280723454163,
+          "latency_ms": 31.819,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1288
+        },
+        {
+          "id": "q-approval-1",
+          "split": "test",
+          "category": "literal",
+          "query": "勾选允许修改记忆会自动批准操作吗？",
+          "expected": [
+            "approval"
+          ],
+          "retrieved": [
+            "approval",
+            "correction",
+            "outbox",
+            "worker",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 29.852,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1291
+        },
+        {
+          "id": "q-approval-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "开启写能力、批准工具和接受事实之间有何区别？",
+          "expected": [
+            "approval"
+          ],
+          "retrieved": [
+            "approval",
+            "budget",
+            "evidence",
+            "api",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 33.913,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1260
+        },
+        {
+          "id": "q-outbox-1",
+          "split": "test",
+          "category": "literal",
+          "query": "outbox和幂等键的作用是什么？",
+          "expected": [
+            "outbox"
+          ],
+          "retrieved": [
+            "outbox",
+            "evidence",
+            "budget",
+            "correction",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 24.122,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1302
+        },
+        {
+          "id": "q-outbox-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "网络中断后怎么避免再次执行相同外部动作？",
+          "expected": [
+            "outbox"
+          ],
+          "retrieved": [
+            "outbox",
+            "approval",
+            "tracing",
+            "budget",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 33.775,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1276
+        },
+        {
+          "id": "q-providers-1",
+          "split": "test",
+          "category": "literal",
+          "query": "支持哪些模型协议，密钥在哪里？",
+          "expected": [
+            "providers"
+          ],
+          "retrieved": [
+            "providers",
+            "budget",
+            "evidence",
+            "deployment",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 25.685,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1273
+        },
+        {
+          "id": "q-providers-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "切换厂商时哪些层需要保持统一，浏览器持有密钥吗？",
+          "expected": [
+            "providers"
+          ],
+          "retrieved": [
+            "providers",
+            "gate",
+            "api",
+            "database",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 35.521,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1245
+        },
+        {
+          "id": "q-tracing-1",
+          "split": "test",
+          "category": "literal",
+          "query": "Langfuse不可用是否影响智能体？",
+          "expected": [
+            "tracing"
+          ],
+          "retrieved": [
+            "gate",
+            "tracing",
+            "evidence",
+            "budget",
+            "deployment"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 23.821,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1283
+        },
+        {
+          "id": "q-tracing-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "外部追踪平台故障时还能继续对话和查看本地轨迹吗？",
+          "expected": [
+            "tracing"
+          ],
+          "retrieved": [
+            "outbox",
+            "worker",
+            "distillation",
+            "deployment",
+            "frontend"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 36.948,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1258
+        },
+        {
+          "id": "q-distillation-1",
+          "split": "test",
+          "category": "literal",
+          "query": "增量蒸馏怎样确定未处理消息？",
+          "expected": [
+            "distillation"
+          ],
+          "retrieved": [
+            "distillation",
+            "evidence",
+            "worker",
+            "forget",
+            "budget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 27.401,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1297
+        },
+        {
+          "id": "q-distillation-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "不再固定每几轮做总结后，系统怎么记住处理进度？",
+          "expected": [
+            "distillation"
+          ],
+          "retrieved": [
+            "worker",
+            "distillation",
+            "outbox",
+            "budget",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 35.011,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1305
+        },
+        {
+          "id": "q-budget-1",
+          "split": "test",
+          "category": "literal",
+          "query": "Run有哪些预算限制？",
+          "expected": [
+            "budget"
+          ],
+          "retrieved": [
+            "budget",
+            "hybrid",
+            "quota-new",
+            "correction",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 20.103,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1235
+        },
+        {
+          "id": "q-budget-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "页面的预留token能直接作为厂商收费金额吗？",
+          "expected": [
+            "budget"
+          ],
+          "retrieved": [
+            "evidence",
+            "budget",
+            "quota-new",
+            "approval",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 30.616,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1226
+        },
+        {
+          "id": "q-deployment-1",
+          "split": "test",
+          "category": "literal",
+          "query": "完整部署包含哪些服务？",
+          "expected": [
+            "deployment"
+          ],
+          "retrieved": [
+            "deployment",
+            "worker",
+            "quota-new",
+            "distillation",
+            "outbox"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 23.331,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1250
+        },
+        {
+          "id": "q-deployment-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "停止容器后如何保留项目资料？",
+          "expected": [
+            "deployment"
+          ],
+          "retrieved": [
+            "providers",
+            "hybrid",
+            "namespace",
+            "worker",
+            "quota-new"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 26.171,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1200
+        },
+        {
+          "id": "q-time-past",
+          "split": "calibration",
+          "category": "temporal",
+          "query": "2026年8月单份资料限额是多少？",
+          "expected": [
+            "quota-old"
+          ],
+          "retrieved": [
+            "quota-old",
+            "evidence",
+            "worker",
+            "budget",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 25.567,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1226
+        },
+        {
+          "id": "q-time-current",
+          "split": "calibration",
+          "category": "temporal",
+          "query": "现在单份资料的上传限额是多少？",
+          "expected": [
+            "quota-new"
+          ],
+          "retrieved": [
+            "quota-new",
+            "evidence",
+            "worker",
+            "budget",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 28.338,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1233
+        },
+        {
+          "id": "q-isolation-db",
+          "split": "calibration",
+          "category": "isolation",
+          "query": "ORANGE-PRIVATE项目用了什么数据库？",
+          "expected": [],
+          "retrieved": [
+            "namespace",
+            "database",
+            "deployment",
+            "gate",
+            "hybrid"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 24.438,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1297
+        },
+        {
+          "id": "q-isolation-schedule",
+          "split": "calibration",
+          "category": "isolation",
+          "query": "橙舟项目演示时间和会议口令是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "distillation",
+            "namespace",
+            "budget",
+            "worker"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 29.721,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1302
+        },
+        {
+          "id": "q-own-scope",
+          "split": "test",
+          "category": "isolation",
+          "query": "Si-agent的数据持久化选型是什么？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "tracing",
+            "database",
+            "deployment",
+            "worker",
+            "evidence"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 25.371,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1276
+        },
+        {
+          "id": "q-forgot-token",
+          "split": "test",
+          "category": "forget",
+          "query": "FORGET-ONLY-5827的演示临时口令是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "tiers",
+            "budget",
+            "correction",
+            "quota-new"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 25.509,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1222
+        },
+        {
+          "id": "q-forgot-paraphrase",
+          "split": "test",
+          "category": "forget",
+          "query": "之前保存的临时演示口令还能查到吗？",
+          "expected": [],
+          "retrieved": [
+            "correction",
+            "quota-new",
+            "approval",
+            "evidence",
+            "budget"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 29.974,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1226
+        },
+        {
+          "id": "q-review-filter",
+          "split": "test",
+          "category": "conflict",
+          "query": "REVIEW-ONLY采购方案需要多少台GPU服务器？",
+          "expected": [],
+          "retrieved": [
+            "deployment",
+            "gate",
+            "distillation",
+            "frontend",
+            "worker"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 26.857,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1262
+        },
+        {
+          "id": "q-unknown-release",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "Si-agent下一次发布的确切分钟和秒是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "namespace",
+            "tiers",
+            "tracing",
+            "database"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 30.251,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1261
+        },
+        {
+          "id": "q-unknown-person",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "项目负责人的身份证号码是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "hybrid",
+            "namespace",
+            "quota-new",
+            "distillation"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 28.267,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1244
+        },
+        {
+          "id": "q-unknown-cost",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "2027年全年模型服务的精确账单是多少？",
+          "expected": [],
+          "retrieved": [
+            "budget",
+            "evidence",
+            "deployment",
+            "quota-new",
+            "providers"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 29.766,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1220
+        },
+        {
+          "id": "q-unknown-cloud",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "目前已经签约的云托管客户名单是什么？",
+          "expected": [],
+          "retrieved": [
+            "quota-new",
+            "gate",
+            "evidence",
+            "approval",
+            "correction"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 31.197,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [
+            "Embeddings disabled; lexical retrieval was used."
+          ],
+          "estimated_tokens": 1234
+        }
+      ],
+      "summary": {
+        "queries": 48,
+        "positive_queries": 39,
+        "recall_at_k": 0.871795,
+        "mrr": 0.746581,
+        "ndcg_at_k": 0.777981,
+        "evidence_integrity": 1.0,
+        "scope_violation_queries": 0,
+        "forbidden_violation_queries": 0,
+        "stale_violation_queries": 0,
+        "unavailable_violation_queries": 0,
+        "mean_query_ms": 28.807292,
+        "no_answer_queries_with_hits": 9
+      }
+    },
+    {
+      "mode": "hybrid",
+      "top_k": 5,
+      "records": [
+        {
+          "id": "q-database-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "项目主数据库和向量扩展采用什么？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "database",
+            "namespace",
+            "hybrid",
+            "gate",
+            "deployment"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 49.058,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1297
+        },
+        {
+          "id": "q-database-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "长期知识和关系记录统一落在哪个存储方案？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "database",
+            "gate",
+            "outbox",
+            "namespace",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 51.769,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1299
+        },
+        {
+          "id": "q-api-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "后端API和事件传输使用什么技术？",
+          "expected": [
+            "api"
+          ],
+          "retrieved": [
+            "api",
+            "tracing",
+            "frontend",
+            "worker",
+            "providers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 44.657,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1176
+        },
+        {
+          "id": "q-api-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "页面怎样提交问题并获知智能体执行进度？",
+          "expected": [
+            "api"
+          ],
+          "retrieved": [
+            "api",
+            "outbox",
+            "budget",
+            "tracing",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 50.073,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1248
+        },
+        {
+          "id": "q-frontend-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "前端技术栈和默认语言是什么？",
+          "expected": [
+            "frontend"
+          ],
+          "retrieved": [
+            "frontend",
+            "api",
+            "deployment",
+            "worker",
+            "distillation"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 43.559,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1230
+        },
+        {
+          "id": "q-frontend-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "工作台用什么构建，界面面向哪种语言？",
+          "expected": [
+            "frontend"
+          ],
+          "retrieved": [
+            "frontend",
+            "worker",
+            "distillation",
+            "database",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 46.941,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1237
+        },
+        {
+          "id": "q-worker-1",
+          "split": "calibration",
+          "category": "literal",
+          "query": "Worker负责哪些任务？",
+          "expected": [
+            "worker"
+          ],
+          "retrieved": [
+            "worker",
+            "distillation",
+            "outbox",
+            "deployment",
+            "tracing"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 38.964,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1290
+        },
+        {
+          "id": "q-worker-2",
+          "split": "calibration",
+          "category": "paraphrase",
+          "query": "为什么上传资料后还能立即继续使用页面？",
+          "expected": [
+            "worker"
+          ],
+          "retrieved": [
+            "quota-new",
+            "evidence",
+            "worker",
+            "gate",
+            "deployment"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.3333333333333333,
+          "ndcg_at_k": 0.5,
+          "latency_ms": 49.192,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1238
+        },
+        {
+          "id": "q-namespace-1",
+          "split": "test",
+          "category": "literal",
+          "query": "虚拟上下文URI和目录存在哪里？",
+          "expected": [
+            "namespace"
+          ],
+          "retrieved": [
+            "namespace",
+            "hybrid",
+            "gate",
+            "tiers",
+            "database"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 42.976,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1274
+        },
+        {
+          "id": "q-namespace-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "这些像文件路径的项目知识地址是真实磁盘文件吗？",
+          "expected": [
+            "namespace"
+          ],
+          "retrieved": [
+            "gate",
+            "namespace",
+            "correction",
+            "evidence",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 51.149,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1291
+        },
+        {
+          "id": "q-tiers-1",
+          "split": "test",
+          "category": "literal",
+          "query": "L0、L1、L2分别是什么？",
+          "expected": [
+            "tiers"
+          ],
+          "retrieved": [
+            "tiers",
+            "namespace",
+            "tracing",
+            "gate",
+            "database"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 36.204,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1261
+        },
+        {
+          "id": "q-tiers-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "快速浏览、内容概览和完整原文如何分层？",
+          "expected": [
+            "tiers"
+          ],
+          "retrieved": [
+            "tiers",
+            "namespace",
+            "deployment",
+            "api",
+            "hybrid"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 47.032,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1241
+        },
+        {
+          "id": "q-hybrid-1",
+          "split": "test",
+          "category": "literal",
+          "query": "混合检索如何融合召回结果？",
+          "expected": [
+            "hybrid"
+          ],
+          "retrieved": [
+            "hybrid",
+            "gate",
+            "outbox",
+            "database",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 42.637,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1296
+        },
+        {
+          "id": "q-hybrid-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "字面匹配和语义相似的候选怎样合成最终上下文？",
+          "expected": [
+            "hybrid"
+          ],
+          "retrieved": [
+            "hybrid",
+            "evidence",
+            "namespace",
+            "gate",
+            "approval"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 54.232,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1280
+        },
+        {
+          "id": "q-gate-1",
+          "split": "test",
+          "category": "literal",
+          "query": "检索门什么时候执行，同Run会复用吗？",
+          "expected": [
+            "gate"
+          ],
+          "retrieved": [
+            "gate",
+            "budget",
+            "outbox",
+            "hybrid",
+            "approval"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 46.367,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1289
+        },
+        {
+          "id": "q-gate-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "智能体每次工具往返都必须重复查整套知识库吗？",
+          "expected": [
+            "gate"
+          ],
+          "retrieved": [
+            "approval",
+            "gate",
+            "budget",
+            "outbox",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 53.495,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1292
+        },
+        {
+          "id": "q-evidence-1",
+          "split": "test",
+          "category": "literal",
+          "query": "事实证据能来自助手回答吗？",
+          "expected": [
+            "evidence"
+          ],
+          "retrieved": [
+            "evidence",
+            "correction",
+            "gate",
+            "hybrid",
+            "api"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 41.531,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1269
+        },
+        {
+          "id": "q-evidence-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "如何防止模型把自己编写的内容再当作已知知识？",
+          "expected": [
+            "evidence"
+          ],
+          "retrieved": [
+            "forget",
+            "budget",
+            "correction",
+            "outbox",
+            "approval"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 53.722,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1286
+        },
+        {
+          "id": "q-correction-1",
+          "split": "test",
+          "category": "literal",
+          "query": "修改一条正式记忆需要哪些步骤？",
+          "expected": [
+            "correction"
+          ],
+          "retrieved": [
+            "correction",
+            "gate",
+            "approval",
+            "forget",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 47.767,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1272
+        },
+        {
+          "id": "q-correction-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "用户纠正数据库选型时为何不会直接覆盖旧结论？",
+          "expected": [
+            "correction"
+          ],
+          "retrieved": [
+            "evidence",
+            "correction",
+            "database",
+            "budget",
+            "forget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 54.767,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1294
+        },
+        {
+          "id": "q-forget-1",
+          "split": "test",
+          "category": "literal",
+          "query": "忘记后如何阻止旧消息恢复内容？",
+          "expected": [
+            "forget"
+          ],
+          "retrieved": [
+            "forget",
+            "evidence",
+            "gate",
+            "worker",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 46.075,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1291
+        },
+        {
+          "id": "q-forget-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "删除记忆为何还需要墓碑和依赖传播？",
+          "expected": [
+            "forget"
+          ],
+          "retrieved": [
+            "gate",
+            "forget",
+            "deployment",
+            "approval",
+            "correction"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 50.657,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1295
+        },
+        {
+          "id": "q-approval-1",
+          "split": "test",
+          "category": "literal",
+          "query": "勾选允许修改记忆会自动批准操作吗？",
+          "expected": [
+            "approval"
+          ],
+          "retrieved": [
+            "approval",
+            "correction",
+            "outbox",
+            "forget",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 49.647,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1294
+        },
+        {
+          "id": "q-approval-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "开启写能力、批准工具和接受事实之间有何区别？",
+          "expected": [
+            "approval"
+          ],
+          "retrieved": [
+            "approval",
+            "budget",
+            "evidence",
+            "correction",
+            "distillation"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 52.303,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1300
+        },
+        {
+          "id": "q-outbox-1",
+          "split": "test",
+          "category": "literal",
+          "query": "outbox和幂等键的作用是什么？",
+          "expected": [
+            "outbox"
+          ],
+          "retrieved": [
+            "outbox",
+            "gate",
+            "distillation",
+            "worker",
+            "deployment"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 43.071,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1316
+        },
+        {
+          "id": "q-outbox-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "网络中断后怎么避免再次执行相同外部动作？",
+          "expected": [
+            "outbox"
+          ],
+          "retrieved": [
+            "outbox",
+            "tracing",
+            "gate",
+            "budget",
+            "approval"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 50.221,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1276
+        },
+        {
+          "id": "q-providers-1",
+          "split": "test",
+          "category": "literal",
+          "query": "支持哪些模型协议，密钥在哪里？",
+          "expected": [
+            "providers"
+          ],
+          "retrieved": [
+            "providers",
+            "database",
+            "evidence",
+            "hybrid",
+            "budget"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 42.904,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1274
+        },
+        {
+          "id": "q-providers-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "切换厂商时哪些层需要保持统一，浏览器持有密钥吗？",
+          "expected": [
+            "providers"
+          ],
+          "retrieved": [
+            "providers",
+            "database",
+            "deployment",
+            "correction",
+            "gate"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 52.395,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1294
+        },
+        {
+          "id": "q-tracing-1",
+          "split": "test",
+          "category": "literal",
+          "query": "Langfuse不可用是否影响智能体？",
+          "expected": [
+            "tracing"
+          ],
+          "retrieved": [
+            "tracing",
+            "gate",
+            "budget",
+            "evidence",
+            "approval"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 42.026,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1272
+        },
+        {
+          "id": "q-tracing-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "外部追踪平台故障时还能继续对话和查看本地轨迹吗？",
+          "expected": [
+            "tracing"
+          ],
+          "retrieved": [
+            "outbox",
+            "distillation",
+            "worker",
+            "deployment",
+            "budget"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 56.301,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1308
+        },
+        {
+          "id": "q-distillation-1",
+          "split": "test",
+          "category": "literal",
+          "query": "增量蒸馏怎样确定未处理消息？",
+          "expected": [
+            "distillation"
+          ],
+          "retrieved": [
+            "distillation",
+            "forget",
+            "worker",
+            "outbox",
+            "evidence"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 44.56,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1301
+        },
+        {
+          "id": "q-distillation-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "不再固定每几轮做总结后，系统怎么记住处理进度？",
+          "expected": [
+            "distillation"
+          ],
+          "retrieved": [
+            "correction",
+            "outbox",
+            "gate",
+            "distillation",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_k": 0.43067655807339306,
+          "latency_ms": 53.118,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1313
+        },
+        {
+          "id": "q-budget-1",
+          "split": "test",
+          "category": "literal",
+          "query": "Run有哪些预算限制？",
+          "expected": [
+            "budget"
+          ],
+          "retrieved": [
+            "budget",
+            "gate",
+            "quota-new",
+            "hybrid",
+            "frontend"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 38.553,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1183
+        },
+        {
+          "id": "q-budget-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "页面的预留token能直接作为厂商收费金额吗？",
+          "expected": [
+            "budget"
+          ],
+          "retrieved": [
+            "budget",
+            "quota-new",
+            "providers",
+            "hybrid",
+            "approval"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 49.527,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1204
+        },
+        {
+          "id": "q-deployment-1",
+          "split": "test",
+          "category": "literal",
+          "query": "完整部署包含哪些服务？",
+          "expected": [
+            "deployment"
+          ],
+          "retrieved": [
+            "deployment",
+            "distillation",
+            "worker",
+            "tracing",
+            "quota-new"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 41.441,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1228
+        },
+        {
+          "id": "q-deployment-2",
+          "split": "test",
+          "category": "paraphrase",
+          "query": "停止容器后如何保留项目资料？",
+          "expected": [
+            "deployment"
+          ],
+          "retrieved": [
+            "namespace",
+            "worker",
+            "gate",
+            "forget",
+            "quota-new"
+          ],
+          "recall_at_k": 0.0,
+          "mrr": 0,
+          "ndcg_at_k": 0.0,
+          "latency_ms": 45.246,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1226
+        },
+        {
+          "id": "q-time-past",
+          "split": "calibration",
+          "category": "temporal",
+          "query": "2026年8月单份资料限额是多少？",
+          "expected": [
+            "quota-old"
+          ],
+          "retrieved": [
+            "quota-old",
+            "evidence",
+            "budget",
+            "worker",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 41.91,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1200
+        },
+        {
+          "id": "q-time-current",
+          "split": "calibration",
+          "category": "temporal",
+          "query": "现在单份资料的上传限额是多少？",
+          "expected": [
+            "quota-new"
+          ],
+          "retrieved": [
+            "quota-new",
+            "evidence",
+            "budget",
+            "worker",
+            "tiers"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "latency_ms": 45.762,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1207
+        },
+        {
+          "id": "q-isolation-db",
+          "split": "calibration",
+          "category": "isolation",
+          "query": "ORANGE-PRIVATE项目用了什么数据库？",
+          "expected": [],
+          "retrieved": [
+            "database",
+            "namespace",
+            "deployment",
+            "hybrid",
+            "gate"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 39.559,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1297
+        },
+        {
+          "id": "q-isolation-schedule",
+          "split": "calibration",
+          "category": "isolation",
+          "query": "橙舟项目演示时间和会议口令是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "distillation",
+            "hybrid",
+            "worker",
+            "budget"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 46.148,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1302
+        },
+        {
+          "id": "q-own-scope",
+          "split": "test",
+          "category": "isolation",
+          "query": "Si-agent的数据持久化选型是什么？",
+          "expected": [
+            "database"
+          ],
+          "retrieved": [
+            "tracing",
+            "database",
+            "deployment",
+            "namespace",
+            "worker"
+          ],
+          "recall_at_k": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.6309297535714575,
+          "latency_ms": 42.563,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1271
+        },
+        {
+          "id": "q-forgot-token",
+          "split": "test",
+          "category": "forget",
+          "query": "FORGET-ONLY-5827的演示临时口令是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "correction",
+            "tracing",
+            "evidence",
+            "tiers"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 41.532,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1262
+        },
+        {
+          "id": "q-forgot-paraphrase",
+          "split": "test",
+          "category": "forget",
+          "query": "之前保存的临时演示口令还能查到吗？",
+          "expected": [],
+          "retrieved": [
+            "correction",
+            "gate",
+            "evidence",
+            "quota-new",
+            "namespace"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 46.988,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1235
+        },
+        {
+          "id": "q-review-filter",
+          "split": "test",
+          "category": "conflict",
+          "query": "REVIEW-ONLY采购方案需要多少台GPU服务器？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "database",
+            "api",
+            "deployment",
+            "worker"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 43.394,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1278
+        },
+        {
+          "id": "q-unknown-release",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "Si-agent下一次发布的确切分钟和秒是什么？",
+          "expected": [],
+          "retrieved": [
+            "tracing",
+            "tiers",
+            "distillation",
+            "namespace",
+            "evidence"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 46.915,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1263
+        },
+        {
+          "id": "q-unknown-person",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "项目负责人的身份证号码是什么？",
+          "expected": [],
+          "retrieved": [
+            "gate",
+            "hybrid",
+            "quota-new",
+            "namespace",
+            "approval"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 46.53,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1222
+        },
+        {
+          "id": "q-unknown-cost",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "2027年全年模型服务的精确账单是多少？",
+          "expected": [],
+          "retrieved": [
+            "budget",
+            "providers",
+            "quota-new",
+            "evidence",
+            "tiers"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 46.4,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1197
+        },
+        {
+          "id": "q-unknown-cloud",
+          "split": "test",
+          "category": "unanswerable",
+          "query": "目前已经签约的云托管客户名单是什么？",
+          "expected": [],
+          "retrieved": [
+            "quota-new",
+            "frontend",
+            "distillation",
+            "correction",
+            "evidence"
+          ],
+          "recall_at_k": null,
+          "mrr": null,
+          "ndcg_at_k": null,
+          "latency_ms": 48.11,
+          "violations": [],
+          "evidence_valid_hits": 5,
+          "hit_count": 5,
+          "warnings": [],
+          "estimated_tokens": 1198
+        }
+      ],
+      "summary": {
+        "queries": 48,
+        "positive_queries": 39,
+        "recall_at_k": 0.923077,
+        "mrr": 0.82265,
+        "ndcg_at_k": 0.848342,
+        "evidence_integrity": 1.0,
+        "scope_violation_queries": 0,
+        "forbidden_violation_queries": 0,
+        "stale_violation_queries": 0,
+        "unavailable_violation_queries": 0,
+        "mean_query_ms": 46.665583,
+        "no_answer_queries_with_hits": 9
+      }
+    }
+  ],
+  "index_coverage": {
+    "representations": 76,
+    "ready": 76
+  },
+  "embedding_budget": {
+    "session": {
+      "requests": 0,
+      "texts": 0,
+      "characters": 0,
+      "cache_hits": 172,
+      "network_ms": 0.0
+    },
+    "cumulative": {
+      "requests": 23,
+      "texts": 80,
+      "characters": 6003
+    },
+    "limits": {
+      "requests": 40,
+      "texts": 200,
+      "characters": 40000
+    }
+  },
+  "artifact_note": "Compact export of the local run; synthetic queries and reference IDs retained; random per-hit storage identifiers omitted."
+}

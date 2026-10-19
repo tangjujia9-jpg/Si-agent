@@ -64,6 +64,7 @@ def configured_catalog(values):
                     ModelCapabilities(
                         tool_calling=values.get(prefix + "_TOOL_CALLING", "true") == "true",
                         streaming=values.get(prefix + "_STREAMING", "true") == "true",
+                        vision=values.get(prefix + "_VISION", "false") == "true",
                         context_window=int(values.get(prefix + "_CONTEXT_WINDOW", "8192")),
                     ),
                 )

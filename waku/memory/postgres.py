@@ -12,11 +12,11 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from urllib.parse import quote, unquote, urlsplit
 
-from sqlalchemy import func, literal_column, or_, select
+from sqlalchemy import case, func, literal_column, or_, select
 
 from waku.domain.contracts import MemoryHit, MemoryNode
 from waku.memory.context import CompiledContext, compile_context
-from waku.memory.embeddings import Embedder, terms, validate_vectors
+from waku.memory.embeddings import DIMENSIONS, Embedder, terms, validate_vectors
 from waku.memory.indexing import enqueue_index, refresh_indexes
 from waku.memory.lifecycle import blocked, forget_node, invalidate_dependents, record_version
 from waku.memory.port import MemoryQuery, MemoryWrite, MemoryWriteReceipt
@@ -323,7 +323,10 @@ class PostgresMemory:
         if self.embedder:
             started = time.perf_counter()
             try:
-                vector = validate_vectors(self.embedder.embed([query.text[:6000]]), 1)[0]
+                vector = validate_vectors(
+                    self.embedder.embed([query.text[:6000]]), 1,
+                    getattr(self.embedder, "dimensions", DIMENSIONS),
+                )[0]
             except Exception:
                 warnings.append("Embedding unavailable; lexical retrieval was used.")
             stages.append(
@@ -425,7 +428,17 @@ class PostgresMemory:
                         ContextIndex.embedding.is_not(None),
                     )
                     if session.bind.dialect.name == "postgresql":
-                        distance = ContextIndex.embedding.cosine_distance(vector)
+                        # CASE fences the distance operand itself: SQL planners may
+                        # evaluate WHERE predicates in any order across mixed models.
+                        operand = case(
+                            (
+                                (ContextIndex.embedding_model == self.embedder.model_id)
+                                & (func.vector_dims(ContextIndex.embedding) == len(vector)),
+                                ContextIndex.embedding,
+                            ),
+                            else_=None,
+                        )
+                        distance = operand.cosine_distance(vector)
                         semantic = session.execute(
                             semantic_statement.where(distance < 0.8)
                             .order_by(distance, ContextIndex.id)
@@ -433,7 +446,10 @@ class PostgresMemory:
                         ).all()
                     else:
                         rows = session.execute(semantic_statement).all()
-                        scored = [(cosine(vector, r.embedding), r, n) for r, n in rows]
+                        scored = [
+                            (cosine(vector, r.embedding), r, n) for r, n in rows
+                            if len(r.embedding) == len(vector)
+                        ]
                         semantic = [
                             (r, n)
                             for score, r, n in sorted(scored, key=lambda x: (-x[0], x[1].id))

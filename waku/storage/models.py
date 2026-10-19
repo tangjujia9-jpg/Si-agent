@@ -154,7 +154,7 @@ class ContextNode(Identity, Base):
     status: Mapped[str] = mapped_column(String(16), default="active")
     supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("context_nodes.id"))
     embedding: Mapped[list | None] = mapped_column(
-        Vector(1536).with_variant(JSON(none_as_null=True), "sqlite")
+        Vector().with_variant(JSON(none_as_null=True), "sqlite")
     )
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR().with_variant(Text, "sqlite"))
 
@@ -202,7 +202,7 @@ class ContextIndex(Identity, Base):
     end_char: Mapped[int] = mapped_column(Integer, default=0)
     embedding_model: Mapped[str | None] = mapped_column(String(240))
     embedding: Mapped[list | None] = mapped_column(
-        Vector(1536).with_variant(JSON(none_as_null=True), "sqlite")
+        Vector().with_variant(JSON(none_as_null=True), "sqlite")
     )
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR().with_variant(Text, "sqlite"))
 

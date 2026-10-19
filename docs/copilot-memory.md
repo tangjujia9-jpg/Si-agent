@@ -92,14 +92,18 @@ Context Compiler 保留引用头并按 UTF-8 字节保守限制预算，再由 R
 |---|---|
 | SI_EMBEDDING_BACKEND=none | 仅关键词，本机默认 |
 | SI_EMBEDDING_BACKEND=hash-demo | 离线演示向量，Compose 默认，不提供语义改写召回 |
-| SI_EMBEDDING_BACKEND=openai-compatible | 需要 BASE_URL、MODEL，可选 API_KEY，固定 1536 维 |
+| SI_EMBEDDING_BACKEND=openai-compatible | 需要 BASE_URL、MODEL，可选 API_KEY，维度通过 SI_EMBEDDING_DIMENSIONS 配置，默认 1536 |
+| SI_EMBEDDING_BATCH_SIZE | 每批 1–16 条文本，本轮限额模型配置为 4 |
 | SI_SUMMARY_BACKEND=extractive/openai-compatible | 规则摘要或可选模型摘要 |
 | SI_EXTRACTION_BACKEND=markers/openai-compatible | 决策标记或可选模型抽取 |
 | SI_DECISION_BACKEND=local/jev | 本地策略或可选 Jev |
 
 API 与 Worker 必须使用相同 Embedding 配置。查询向量在搜索时计算，资料向量在后台建立。
-换 Embedding 模型后需要 reindex，查询不会混用不同模型向量。
+换 Embedding 模型、服务或请求维度后需要 reindex，查询不会混用不同模型向量。
+迁移 0007 支持不同维度共存，距离运算按模型与维度隔离。当前 Qwen 接口实测 1024 维，不能补零伪装成 1536 维。
 当前向量采用精确检索，尚未建立 HNSW/IVFFlat 路径。
+
+hy3/Qwen 的实际配置、限额与初步基线见[7A 验收报告](copilot-week7a-release.md)。本轮禁用 Jev。
 
 离线测试验证程序边界，不证明真实模型质量。实际完成范围、验证结果和手动操作步骤见
 [统一阶段验收报告](copilot-unified-memory-release.md)，长期目标见[统一记忆设计](si-unified-memory-design.md)。
