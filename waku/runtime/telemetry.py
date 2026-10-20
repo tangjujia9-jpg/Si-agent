@@ -38,6 +38,7 @@ SAFE_FIELDS = {
     "stage",
     "candidate_id",
     "message_id",
+    "retrieve",
 }
 ACTIVE_TRACE = ContextVar("si_active_trace", default=None)
 

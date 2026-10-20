@@ -2,6 +2,7 @@
 
 import json
 from datetime import timedelta
+from typing import ClassVar
 
 import pytest
 
@@ -24,6 +25,93 @@ from waku.tools.executor import Arguments, Executor, ToolSpec, project_executor
 from waku.workers.runner import claim, process, run_once
 
 backend = backend_fixture
+
+
+def test_loop_compacts_request_copy_and_retains_full_durable_tool_results(backend):
+    tools = Executor([ToolSpec("read_memory", "Read", Arguments,
+                              lambda *args: {"uri": "si://source", "content": "evidence " * 450})])
+    turns = [ModelResponse(tool_calls=[{"id": str(i), "name": "read_memory", "arguments": {}}])
+             for i in range(4)]
+    client, sessions, _, _, rid, runtime, model, _ = setup_run(
+        backend, [*turns, ModelResponse("completed")], executor=tools,
+        tools=["read_memory"], max_tokens=100000,
+    )
+    model.capabilities = lambda model: ModelCapabilities(tool_calling=True, context_window=11000)
+    run_job(sessions, runtime)
+    assert client.get(f"/api/runs/{rid}").json()["status"] == "succeeded"
+    assert len(model.requests) == 5
+    assert any('"context_elided": true' in str(r.messages) for r in model.requests)
+    with sessions() as session:
+        canonical = session.get(Run, rid).context["messages"]
+        outcomes = [json.loads(m["content"]) for m in canonical if m["role"] == "tool"]
+    assert len(outcomes) == 4 and all("evidence " * 450 == o["data"]["content"] for o in outcomes)
+    for request in model.requests:
+        calls = [c["id"] for m in request.messages for c in m.get("tool_calls", [])]
+        results = [m["tool_call_id"] for m in request.messages if m["role"] == "tool"]
+        assert calls == results
+    events = client.get(f"/api/runs/{rid}/events").json()
+    gates = [e["data"] for e in events if e["kind"] == "retrieval_decision"]
+    assert len(gates) == 1 and gates[0]["source"] == "local-rule" and gates[0]["retrieve"]
+
+
+@pytest.mark.parametrize("recovers", [True, False])
+def test_upstream_length_recovery_reduces_request_once_without_exposing_error(backend, recovers):
+    from waku.providers.adapters import estimated_size
+
+    class Rejection(Exception):
+        status_code = 400
+        body: ClassVar = {"code": "context_length_exceeded", "message": "PRIVATE upstream prompt sk-private"}
+
+    client, sessions, _, _, rid, runtime, model, _ = setup_run(
+        backend, [Rejection("PRIVATE"), ModelResponse("recovered") if recovers else Rejection("PRIVATE")],
+        tools=[], max_tokens=100000,
+    )
+    with sessions.begin() as session:
+        run = session.get(Run, rid)
+        state = dict(run.context)
+        state["messages"] = [
+            {"role": "user", "content": "past " * 4000},
+            {"role": "assistant", "content": "past reply"}, *state["messages"],
+        ]
+        run.context = state
+    run_job(sessions, runtime)
+    snapshot = client.get(f"/api/runs/{rid}").json()
+    assert snapshot["status"] == ("succeeded" if recovers else "failed")
+    if not recovers:
+        assert snapshot["error_code"] == "provider_context_length"
+    assert len(model.requests) == 2
+    assert estimated_size(model.requests[1]) < estimated_size(model.requests[0])
+    events = client.get(f"/api/runs/{rid}/events").json()
+    assert len([e for e in events if e["kind"] == "context_recovery"]) == 1
+    assert "PRIVATE" not in str(events)
+
+
+def test_length_error_after_published_text_does_not_retry(backend):
+    from waku.providers.contracts import StreamEvent
+
+    class Rejection(Exception):
+        status_code = 400
+        body: ClassVar = {"code": "context_length_exceeded", "message": "PRIVATE"}
+
+    client, sessions, _, _, rid, runtime, model, _ = setup_run(
+        backend, [], tools=[], max_tokens=100000,
+    )
+    model.capabilities = lambda _: ModelCapabilities(streaming=True, context_window=32768)
+
+    def stream(_model, request):
+        model.requests.append(request)
+        yield StreamEvent("text_delta", {"text": "partial " * 30})
+        raise Rejection("PRIVATE")
+
+    model.stream = stream
+    run_job(sessions, runtime)
+    snap = client.get(f"/api/runs/{rid}").json()
+    assert snap["status"] == "failed" and snap["error_code"] == "provider_context_length"
+    assert not snap.get("reply") and len(model.requests) == 1
+    events = client.get(f"/api/runs/{rid}/events").json()
+    assert any(e["kind"] == "llm_delta" for e in events)
+    assert not any(e["kind"] == "context_recovery" for e in events)
+    assert "PRIVATE" not in str(events)
 
 
 class Scripted:

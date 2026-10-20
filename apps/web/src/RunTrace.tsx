@@ -62,6 +62,7 @@ export function RunTrace({
   );
   const [busy, setBusy] = useState(false);
   const spans = traceLayout(events);
+  const contextPlan = events.filter((e) => ["context_plan", "context_recovery"].includes(e.kind)).at(-1);
   async function cancel() {
     setBusy(true);
     try {
@@ -103,6 +104,17 @@ export function RunTrace({
             </div>
           </div>
           <p className="trace-id">Trace {run.trace_id}</p>
+          {contextPlan && (
+            <details className="raw-events">
+              <summary>上下文预算（保守估算）</summary>
+              <p>
+                输入估算 {String(contextPlan.data.estimated_input_tokens)} · 窗口 {String(contextPlan.data.context_window)}
+                {" · "}输出预留 {String(contextPlan.data.max_output_tokens)}
+              </p>
+              <p>按 UTF-8 字节估算上界，实际模型 token 见用量；收缩不删除原始记录。</p>
+              <pre>{JSON.stringify(contextPlan.data, null, 2)}</pre>
+            </details>
+          )}
           <RunActivity run={run} events={events} refresh={setRun} />
           {!terminal(run.status) && (
             <button

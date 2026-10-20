@@ -26,6 +26,8 @@ The Chinese project/thread workspace now supports durable model text streaming,
 inline tool progress/approval, folder-linked read-only tools and snapshot imports.
 Sources and memory open in drawers; `/monitor` provides an independent project
 trace/worker view. The local API/worker now use PostgreSQL 16 / pgvector 0.8.2;
+Provider request copies now compact older turns/tool bodies with budget events and
+one bounded context-length recovery; standalone Si Memory MCP is the next milestone.
 the original Copilot SQLite database remains backed up. Migration 0008 adds folder
 association. See [copilot-workspace-release.md](copilot-workspace-release.md).
 The product console defaults to Chinese; [copilot-console.zh-CN.md](copilot-console.zh-CN.md)

@@ -39,6 +39,8 @@ into four groups.
 | [copilot-week4-release.md](copilot-week4-release.md) | 第四周中文验收：分块、候选、证据、历史版本、冲突与忘记 |
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
 | [copilot-runtime.md](copilot-runtime.md) | 第五周运行时、工具恢复、Provider、Jev 与 Langfuse 设计 |
+| [copilot-context-budget-design.md](copilot-context-budget-design.md) | 请求收缩、窗口与运行预算、上游长度恢复及独立 MCP 记忆边界 |
+| [copilot-context-release.md](copilot-context-release.md) | 中文验收：检索门来源、上下文保护、工具清单与项目入口 |
 | [copilot-workspace-design.md](copilot-workspace-design.md) | 项目/会话工作台、目录边界、流式事件与数据库迁移设计 |
 | [copilot-workspace-release.md](copilot-workspace-release.md) | 中文工作台验收：产品导航、文件导入、工具历史修复、独立监控与 PostgreSQL |
 | [copilot-console.zh-CN.md](copilot-console.zh-CN.md) | 中文前端手册：对话、导入、检索、审核、检查器与运行轨迹 |

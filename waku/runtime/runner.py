@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 
 from waku.domain.contracts import Budget, MemoryHit, RunContext, ToolResult
-from waku.memory.context import compile_context
 from waku.memory.port import MemoryQuery
 from waku.providers.adapters import configured_provider, estimated_size
 from waku.providers.contracts import ModelRef, ModelRequest, ModelResponse, Usage
+from waku.runtime.context_budget import context_length_error, fit_request
 from waku.runtime.decisions import LocalDecisions, safe_decision
 from waku.runtime.telemetry import Telemetry, safe_attributes
 from waku.storage.models import (
@@ -32,6 +32,7 @@ TERMINAL = {"succeeded", "failed", "cancelled", "unknown"}
 KNOWN_ERRORS = {
     "token_budget",
     "context_budget",
+    "provider_context_length",
     "tool_budget",
     "iteration_budget",
     "run_deadline",
@@ -401,7 +402,6 @@ class Runtime:
             if state.get("retrieval_cache") is None:
                 query = state["query"]
                 hits = []
-                evidence = ""
                 decision_state = {"text": query, "recent": state["messages"][-4:]}
                 if getattr(self.decisions, "model", None):
                     self._reserve(
@@ -422,7 +422,15 @@ class Runtime:
                         probability=decision.probability,
                         confidence=decision.confidence,
                         reason=decision.reason,
+                        retrieve=decision.value,
                     )
+                self._save(
+                    rid, job_id, token, state,
+                    event=("retrieval_decision", {
+                        "source": decision.source, "retrieve": decision.value,
+                        "reason": decision.reason,
+                    }),
+                )
                 if decision.value:
                     if getattr(
                         self.memory, "embedder", None
@@ -450,7 +458,6 @@ class Runtime:
                             )
                         )
                         attrs["count"] = len(hits)
-                    evidence = compile_context(hits, min(3000, max(1, remaining // 3))).text
                     for hit in hits:
                         ref = {"id": hit.id, "revision": hit.revision}
                         if ref not in state.setdefault("source_nodes", []):
@@ -465,28 +472,26 @@ class Runtime:
                 self._save(rid, job_id, token, state)
             else:
                 hits = [MemoryHit(**hit) for hit in state["retrieval_cache"]["hits"]]
-                evidence = compile_context(hits, min(3000, max(1, remaining // 3))).text
-            request = ModelRequest(
+            base_request = ModelRequest(
                 messages=json_value(state["messages"]),
                 system=SYSTEM
                 + "\nCurrent user statement evidence IDs: "
-                + json.dumps(state.get("statement_evidence_ids", []))
-                + "\nEvidence:\n"
-                + evidence,
+                + json.dumps(state.get("statement_evidence_ids", [])),
                 tools=self.executor.schemas(allowed),
                 max_tokens=1024,
             )
             cap = provider.capabilities(model)
             if allowed and not cap.tool_calling:
                 raise ValueError("model_tools_unsupported")
-            size = estimated_size(request)
             remaining = context.budget.max_tokens - state["charged_tokens"]
-            available = min(remaining - size, (cap.context_window or 8192) - size)
-            if available <= 0:
-                raise ValueError("context_budget")
             from dataclasses import replace
 
-            request = replace(request, max_tokens=min(request.max_tokens, available))
+            # Keep canonical history intact; only the provider-facing copy may be compacted.
+            window = min(cap.context_window or 8192, state.get("effective_context_window", 2**31))
+            plan = fit_request(base_request, hits, context_window=window, remaining=remaining)
+            request = plan.request
+            size = estimated_size(request)
+            self._save(rid, job_id, token, state, event=("context_plan", plan.metrics))
             for attempt in range(2):
                 published = False
 
@@ -552,6 +557,29 @@ class Runtime:
                         attrs["estimated"] = response.usage.total_tokens == 0
                     break
                 except Exception as exc:
+                    if context_length_error(exc):
+                        if published or attempt == 1:
+                            raise ValueError("provider_context_length") from None
+                        # Retry the model only, once, within the existing deadline and run budget.
+                        window //= 2
+                        state["effective_context_window"] = window
+                        remaining = context.budget.max_tokens - state["charged_tokens"]
+                        try:
+                            plan = fit_request(
+                                base_request, hits, context_window=window, remaining=remaining,
+                            )
+                        except ValueError as budget_error:
+                            if str(budget_error) == "token_budget":
+                                raise
+                            raise ValueError("provider_context_length") from None
+                        reduced_size = estimated_size(plan.request)
+                        if reduced_size >= size:
+                            raise ValueError("provider_context_length") from None
+                        request, size = plan.request, reduced_size
+                        self._save(
+                            rid, job_id, token, state, event=("context_recovery", plan.metrics),
+                        )
+                        continue
                     retryable = (
                         getattr(exc, "status_code", 0) in (429, 500, 502, 503, 504)
                         or isinstance(exc, (TimeoutError, ConnectionError))

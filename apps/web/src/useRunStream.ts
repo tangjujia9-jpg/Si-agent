@@ -20,6 +20,9 @@ const kinds = [
   "memory_write",
   "decision_start",
   "embedding_start",
+  "retrieval_decision",
+  "context_plan",
+  "context_recovery",
 ];
 export function useRunStream(runId: string, onFinish: () => void) {
   const [run, setRun] = useState<Run | null>(null);

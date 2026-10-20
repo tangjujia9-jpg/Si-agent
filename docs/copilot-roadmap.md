@@ -9,14 +9,27 @@
 | 第四周 | 已实现分块、可选模型摘要/抽取、candidate/evidence/version、冲突、tombstone | 验证边界见[第四周报告](copilot-week4-release.md) |
 | 第五周 | 已实现新记忆接入 Loop、Provider、工具校验、operation/outbox、可选 LangGraph、Jev、Langfuse | 边界见[第五周报告](copilot-week5-release.md) |
 | 统一阶段 | 已接通会话候选、统一留存、Run 检索复用和来源失效；继续补迁移与显式用户修正 | 见[统一记忆报告](copilot-unified-memory-release.md) |
-| 第六周 | 已接通 Chat/SSE 进度、审批 UI、检查台、Run Trace、模型选择、会话辅助抽取与修正；逐 token 输出后置 | 见[第六周验收](copilot-week6-release.md) |
+| 第六周 | 已接通 Chat/SSE、审批 UI、检查台、Run Trace、模型选择、会话辅助抽取与修正；工作台阶段已补真实文字流 | 见[第六周验收](copilot-week6-release.md)及[工作台报告](copilot-workspace-release.md) |
 | 第七周 | FTS5/hybrid 与外部适配器对比、检索与 Agent 指标、Eval Lab | 可重复评测质量、泄漏、过期、成本和延迟 |
 | 第八周 | README、演示、CI、恢复、安全与许可审查、基准报告 | 面试官十分钟内复现闭环 |
 
 ## 产品体验补强阶段
 
 已在继续 7B 前完成对话工作台、文件夹关联/批量预览、真实模型流式输出、独立项目监控和本机 PostgreSQL 数据迁移。
-验收范围见[工作台报告](copilot-workspace-release.md)。下一步仍优先建立 PostgreSQL 质量基线与 Eval Lab，再完成 Langfuse 实例联调。
+验收范围见[工作台报告](copilot-workspace-release.md)。本轮补请求收缩与错误分类，下一轮先交付可供外部 Agent 接入的 Si Memory，再推进 PostgreSQL 基线、Eval Lab 和 Langfuse。
+
+## 下一轮：独立 Si Memory 与运行可靠性
+
+Agent 是主产品，Memory 是可单独使用的服务。适配器调用同一 Memory Service，
+不依赖聊天 Loop，也不另建记忆库。设计依据见[上下文与服务边界](copilot-context-budget-design.md)。
+
+1. **MCP 读取闭环**：可选 stdio 服务，启动时绑定身份、项目及权限；提供 search/read/list，返回相同的 URI、证据、版本与层级表示。
+2. **MCP 写入闭环**：propose/candidate_status 使用幂等请求；外部模型不能直接批准自己的候选或危险遗忘。服务端继续执行证据、冲突、版本及 tombstone 检查。
+3. **外部 Agent 演示**：提供配置及可运行客户端示例，验证外部查询与 Si-agent 跨会话共享记忆；覆盖跨项目拒绝、重复提交、修正与忘记后不可召回。客户端示例不能代替实际协议验收。
+4. **运行可靠性回归**：覆盖长会话、多轮工具、收缩、审批恢复和模型长度拒绝；确认上下文处理不破坏工具对应关系、预算、事件流或遗忘语义。
+
+验收交付为 MCP 服务、配置示例、确定性测试和中文接入报告。远程 HTTP MCP 需要鉴权、作用域令牌与部署边界，首轮不开放无鉴权公网访问。
+后续按 7B/7C 推进；Jev 保持禁用，检索门策略在完成标注集对照后再调整。
 
 ## 下一轮执行顺序
 

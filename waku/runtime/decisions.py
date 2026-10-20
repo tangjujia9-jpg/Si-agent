@@ -28,7 +28,10 @@ class LocalDecisions:
         # Only self-contained greetings skip retrieval; ambiguous messages retrieve.
         if purpose == "retrieve":
             value = text not in {"hi", "hello", "你好", "谢谢", "thanks"}
-            return Decision(value, float(value), 1.0, "local-rule")
+            return Decision(
+                value, float(value), 1.0, "local-rule",
+                reason="conservative_recall" if value else "self_contained_greeting",
+            )
         return Decision(True, 0.5, 0.0, "local-review", reason="manual_review")
 
 

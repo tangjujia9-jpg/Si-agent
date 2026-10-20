@@ -14,6 +14,8 @@ import { Monitor } from "./Monitor";
 import { Chat } from "./Chat";
 import { Sources } from "./Sources";
 import { traceLayout } from "./RunTrace";
+import { RunActivity } from "./RunActivity";
+import type { Run } from "./api";
 
 afterEach(() => {
   cleanup();
@@ -39,6 +41,16 @@ function Live() {
   const live = useRunStream("r", () => {});
   return <div aria-label="output">{live.text}</div>;
 }
+
+test("activity explains the local gate and distinguishes cumulative budget failure", () => {
+  const run = { id: "r", status: "failed", iterations: 2, error_code: "token_budget" } as Run;
+  render(<RunActivity run={run} events={[
+    { id: 1, kind: "retrieval_decision", data: { source: "local-rule", retrieve: false } },
+  ]} refresh={() => {}} />);
+  expect(screen.getByText(/累计预算已耗尽/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /失败/ }));
+  expect(screen.getByText("检索门 · 本地规则 · 跳过")).toBeTruthy();
+});
 test("text streams before completion and replay is deduplicated across tool turns", async () => {
   vi.stubGlobal("EventSource", Stream);
   vi.stubGlobal(

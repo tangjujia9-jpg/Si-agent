@@ -21,6 +21,43 @@ API 将用户消息与运行任务一起提交；Worker 驱动运行。每次模
 不可信资料，限制上下文预算。所有模型使用可序列化消息，Provider 转换各自协议，
 不传递 SDK 专用对象。首版提供 OpenAI、Anthropic、OpenAI-compatible 和离线 demo。
 
+当前 local 检索门只跳过少数完整问候语，其余问题保守召回；它不调用分类模型，
+所以耗时可小于 1 ms。retrieval_decision 事件记录来源、是否检索及规则原因。
+Embedding 和实际查询有各自 span，不能把门的耗时解释为整个检索耗时。
+
+单次上下文窗口由 `SI_{OPENAI,ANTHROPIC,COMPATIBLE}_CONTEXT_WINDOW` 控制；
+`max_tokens` 是整个 Run 多轮请求的累计保守预留预算，两者不是同一个限制。
+估算以 UTF-8 字节上界计数，不等于真实模型 token 或账单；每次输出预留 1024，并为协议保留余量。
+超过限制时只收缩 Provider 请求副本：按回合丢弃旧历史，省略较早工具正文及叙述，
+再缩短证据。当前问题、最近一组工具交换、系统指令及工具 schema 保留；原始记录不删除。
+最小请求仍不够时分别报告 context_budget 或 token_budget。
+上游明确拒绝长度且尚未输出文字时，可减小本次有效窗口重试一次；
+恢复不重放工具、放宽累计预算或延长截止时间，失败报告 provider_context_length。
+context_plan / context_recovery 记录预算及收缩计数，见[详细设计](copilot-context-budget-design.md)。
+
+本机 hy3 的配置窗口是 32,768；当前网关 /v1/models 未报告实际窗口。
+本机已有两条 context_budget 失败来自运行时检查，不能归因为 hy3 或 workbuddy2api 的长度上限。
+提高配置只会放宽应用限制，不能扩展模型或网关的真实能力。
+
+## 项目 Agent 工具
+
+产品执行器注册以下 8 个工具，按当前 Run 允许集合发送 schema；旧 CLI 的通用工具不自动暴露给项目 Agent。
+前端默认发送五个只读工具，启用“记忆建议”后增加三个记忆写工具。
+
+| 工具 | 用途与边界 |
+|---|---|
+| search_memory | 在当前项目补充检索，可用于初始召回不足或新的子问题 |
+| read_memory | 按 si:// URI 读取有效来源、版本和证据 |
+| propose_memory | 提议新增有来源的稳定事实；工具审批不等于候选已正式入库 |
+| change_memory | 提议 UPDATE / SUPERSEDES / RETRACT，要求当前证据与预期版本 |
+| forget_memory | 用户明确要求后，经审批脱敏来源及已知派生内容，保留遗忘屏障 |
+| list_project_files | 分页查看关联目录或资料快照内的可读文件 |
+| read_project_file | 按相对路径及行号分段读取，返回续读位置并限制输出 |
+| search_project_files | 范围内的字面文本搜索，返回文件路径和行号 |
+
+所有工具校验参数和项目范围；写操作经过审批/outbox，读取不提供 shell 或磁盘修改。
+初始检索由 Harness 自动调用 Memory Service，不计作模型选择 search_memory 的一次工具调用。
+
 ## Jev 决策边界
 
 TypeSafe Jev 返回分类、概率和置信度，不能负责生成摘要、查询改写或事实文本。

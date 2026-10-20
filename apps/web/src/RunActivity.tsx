@@ -31,6 +31,8 @@ export function RunActivity({
       "tool_end",
       "approval_required",
       "run_error",
+      "retrieval_decision",
+      "context_recovery",
     ].includes(e.kind),
   );
   const last = meaningful.at(-1);
@@ -82,7 +84,9 @@ export function RunActivity({
           {meaningful.slice(-12).map((e) => (
             <li key={e.id}>
               <span className="step-dot" />
-              {e.kind === "tool_start" || e.kind === "tool_end"
+              {e.kind === "retrieval_decision"
+                ? `检索门 · ${e.data.source === "local-rule" ? "本地规则" : String(e.data.source)} · ${e.data.retrieve ? "检索" : "跳过"}`
+                : e.kind === "tool_start" || e.kind === "tool_end"
                 ? `${label(String(e.data.tool || "tool"))} · ${e.kind === "tool_start" ? "开始" : "结束"}`
                 : e.kind === "llm_start"
                   ? `生成回答 · 第 ${e.data.iteration || 1} 轮`
@@ -135,9 +139,7 @@ export function RunActivity({
       {run.error_code && (
         <p className="notice">
           运行停止：
-          {run.error_code === "context_budget"
-            ? "上下文预算不足，请缩小任务或新建会话。"
-            : run.error_code}
+          {label(run.error_code)}
         </p>
       )}
       {error && (
