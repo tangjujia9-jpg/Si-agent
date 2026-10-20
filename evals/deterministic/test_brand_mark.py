@@ -49,8 +49,10 @@ def test_the_readme_offers_both_inks():
     readme = (ROOT / "README.md").read_text()
     if readme.startswith("# Si-agent\n"):
         # A derivative uses its own identity while retaining upstream attribution.
-        assert "## Upstream Waku learning material and compatibility interface" in readme
-        assert "Built by [seanchen.io](https://seanchen.io)" in readme
+        assert "https://github.com/ShenSeanChen/waku-agent" in readme
+        assert "[LICENSE](LICENSE)" in readme
+        assert "[ELv2 许可证](hosted/LICENSE)" in readme
+        assert "[LICENSE-BRAND](LICENSE-BRAND)" in readme
         assert all(f"docs/brand/{name}" not in readme for name in VARIANTS)
         return
     assert 'media="(prefers-color-scheme: dark)"' in readme
