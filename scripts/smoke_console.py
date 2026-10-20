@@ -1,6 +1,7 @@
-"""Run a real-browser console walkthrough against disposable demo data.
+"""Exercise folder import, memory review, chat and monitoring in a real browser.
 
-Install Playwright separately; this script never deletes existing projects.
+This script creates its own disposable project and never deletes existing data.
+Use an offline/demo-configured API and worker for deterministic acceptance.
 """
 
 import argparse
@@ -20,20 +21,22 @@ def main():
     parser.add_argument("--browser-executable")
     parser.add_argument("--output", default=".artifacts/console")
     args = parser.parse_args()
-    output = Path(args.output)
+    output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
+    name = "工作台验收 " + uuid4().hex[:6]
+    source = output / name
+    source.mkdir()
+    (source / "architecture.md").write_text(
+        "Decision[storage]: Use SQLite for the project database.", encoding="utf-8"
+    )
+    (source / ".env.json").write_text("excluded", encoding="utf-8")
 
-    def api(path, data=None):
-        req = Request(
-            args.api_url.rstrip("/") + path,
-            data=json.dumps(data).encode() if data is not None else None,
-            headers={"Content-Type": "application/json"},
-        )
-        with urlopen(req, timeout=10) as response:
+    def api(path):
+        with urlopen(Request(args.api_url.rstrip("/") + path), timeout=10) as response:
             return json.load(response)
 
     def wait_candidate(predicate):
-        deadline = time.monotonic() + 60
+        deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             for candidate in api(f"/api/projects/{pid}/memory/candidates"):
                 if predicate(candidate):
@@ -41,80 +44,93 @@ def main():
             time.sleep(0.5)
         raise AssertionError("Candidate did not reach expected state")
 
-    name = "Console acceptance " + uuid4().hex[:6]
     errors = []
     with sync_playwright() as playwright:
         options = {"headless": True}
         if args.browser_executable:
             options["executable_path"] = args.browser_executable
         browser = playwright.chromium.launch(**options)
-        page = browser.new_page(viewport={"width": 1440, "height": 1050})
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(args.url)
-        page.get_by_label("创建项目", exact=True).fill(name)
-        page.get_by_role("button", name="添加项目 +").click()
-        expect(page.get_by_role("heading", name=name, exact=True)).to_be_visible()
+        page.get_by_role("button", name="新建项目", exact=True).click()
+        dialog = page.get_by_role("dialog")
+        dialog.get_by_role("button", name="导入文件夹", exact=True).click()
+        dialog.get_by_label("选择项目文件夹", exact=True).set_input_files(str(source))
+        dialog.get_by_label("项目名称", exact=True).fill(name)
+        dialog.get_by_role("button", name="创建项目", exact=True).click()
+        expect(page.get_by_label("项目资料", exact=True)).to_be_visible()
         pid = next(p["id"] for p in api("/api/projects") if p["name"] == name)
-        page.get_by_role("tab", name="上下文浏览", exact=True).click()
-        page.get_by_label("资料正文").fill(
+        expect(page.locator(".file-preview-list")).to_contain_text("architecture.md")
+        expect(page.locator(".file-preview-list")).not_to_contain_text(".env.json")
+        page.get_by_role("button", name="导入所选资料", exact=True).click()
+        page.locator(".source-list").get_by_role(
+            "button", name="architecture.md", exact=False
+        ).click(timeout=60000)
+        inspector = page.get_by_label("来源详情")
+        expect(inspector.locator("pre").first).to_have_text(
             "Decision[storage]: Use SQLite for the project database."
         )
-        page.get_by_role("button", name="导入文档").click()
-        page.get_by_role("button", name="architecture.md").click(timeout=60000)
-        expect(
-            page.get_by_label("记忆检查器")
-            .get_by_text("Decision[storage]: Use SQLite for the project database.", exact=True)
-            .first
-        ).to_be_visible()
-        page.screenshot(path=str(output / "01-context.png"), full_page=True)
+        page.screenshot(path=str(output / "01-sources.png"), full_page=True)
         wait_candidate(lambda c: c["title"] == "storage" and c["status"] == "pending")
-        page.get_by_role("tab", name="记忆审核", exact=True).click()
-        page.get_by_role("button", name="接受候选", exact=True).click(timeout=60000)
+        page.get_by_role("button", name="项目记忆", exact=True).click()
+        page.get_by_role("button", name="待确认建议", exact=False).click()
+        page.get_by_role("button", name="保存这条记忆", exact=True).click(timeout=15000)
         accepted = wait_candidate(lambda c: c["title"] == "storage" and c["status"] == "applied")
-        page.get_by_role("button", name="打开已生成记忆").click(timeout=15000)
-        inspector = page.get_by_label("记忆检查器")
+        page.get_by_role("button", name="已记住", exact=True).click()
+        page.locator(".saved-memory").filter(has_text="SQLite").click(timeout=15000)
         inspector.get_by_text("修正这条记忆", exact=True).click()
         inspector.get_by_label("新的事实陈述").fill(
             "Use PostgreSQL with pgvector for the project database."
         )
-        inspector.get_by_role("button", name="提交修正候选", exact=True).click()
-        correction = wait_candidate(lambda c: c["action"] == "UPDATE" and c["status"] == "pending")
-        card = page.locator(".candidate").filter(has_text="Use PostgreSQL with pgvector")
-        card.get_by_role("button", name="接受候选", exact=True).click(timeout=15000)
-        wait_candidate(lambda c: c["id"] == correction["id"] and c["status"] == "applied")
-        page.get_by_role("button", name="刷新", exact=False).click()
+        inspector.get_by_role("button", name="保存修改", exact=True).click()
+        wait_candidate(lambda c: c["action"] == "UPDATE" and c["status"] == "applied")
         expect(inspector.locator("pre").first).to_have_text(
-            "Use PostgreSQL with pgvector for the project database."
+            "Use PostgreSQL with pgvector for the project database.", timeout=15000
         )
         inspector.get_by_text("版本对比", exact=False).click()
         page.screenshot(path=str(output / "02-memory.png"), full_page=True)
-        page.get_by_role("tab", name="项目对话", exact=True).click()
-        page.get_by_role("button", name="新建会话 +").click()
+        page.get_by_role("button", name="关闭侧栏").click()
+        page.get_by_label("模型", exact=True).select_option(label="evidence-demo · 离线演示")
         page.get_by_label("消息内容", exact=True).fill(
             "What project database uses PostgreSQL and pgvector?"
         )
-        page.get_by_role("button", name="发送消息").click()
-        expect(page.get_by_role("status").filter(has_text="正在处理")).to_have_count(
-            0, timeout=60000
+        page.get_by_role("button", name="发送消息", exact=True).click()
+        expect(page.locator(".message.user")).to_contain_text(
+            "What project database", timeout=15000
         )
-        page.locator(".message.assistant .citation", has_text="storage.md").click(timeout=60000)
+        citation = page.locator(".message.assistant .citation").filter(has_text="storage.md").first
+        citation.click(timeout=60000)
         expect(inspector.locator("pre").first).to_have_text(
             "Use PostgreSQL with pgvector for the project database."
         )
+        page.get_by_role("button", name="关闭侧栏").click()
         page.reload()
         expect(page.locator(".message.assistant")).to_contain_text("Offline demo", timeout=15000)
-        expect(page.get_by_label("运行轨迹")).to_contain_text("已完成")
-        page.screenshot(path=str(output / "03-chat-trace.png"), full_page=True)
-        # Exercise the destructive UI only on this script's new disposable memory.
-        page.locator(".message.assistant .citation", has_text="storage.md").click()
+        page.screenshot(path=str(output / "03-conversation.png"), full_page=True)
+        with page.expect_popup() as popup:
+            page.get_by_role("link", name="项目监控", exact=True).click()
+        monitor = popup.value
+        expect(monitor.get_by_text("项目监控", exact=True)).to_be_visible()
+        monitor.locator(".monitor-row").first.click(timeout=15000)
+        expect(monitor.get_by_label("运行轨迹")).to_contain_text("调用耗时")
+        expect(monitor.locator(".waterfall details").first).to_be_visible(timeout=15000)
+        monitor.screenshot(path=str(output / "04-monitor.png"), full_page=True)
+        monitor.close()
+        # Destructive UI is exercised only on this script's newly created memory.
+        page.locator(".message.assistant .citation").filter(has_text="storage.md").first.click()
         inspector.get_by_text("忘记此来源", exact=True).click()
         inspector.get_by_role("button", name="预览影响范围").click()
         inspector.get_by_label("我已知晓来源历史将被脱敏").check()
         inspector.get_by_role("button", name="确认忘记").click()
         expect(inspector).to_contain_text("已撤回", timeout=15000)
         assert api(f"/api/memory/{accepted['node_id']}")["content"] == ""
+        page.get_by_role("button", name="关闭侧栏").click()
         page.set_viewport_size({"width": 390, "height": 844})
-        page.screenshot(path=str(output / "04-mobile.png"), full_page=True)
+        page.wait_for_function(
+            "document.querySelector('.sidebar').getBoundingClientRect().right <= 0"
+        )
+        page.screenshot(path=str(output / "05-mobile.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), (
             "mobile horizontal overflow"
         )
@@ -126,13 +142,15 @@ def main():
                 "status": "passed",
                 "project_id": pid,
                 "checks": [
+                    "folder snapshot",
+                    "sensitive file filter",
                     "import",
                     "review",
                     "correction",
                     "versions",
-                    "cross-session citation",
+                    "cross-thread citation",
                     "reload",
-                    "trace",
+                    "independent monitor",
                     "forget",
                     "mobile",
                 ],

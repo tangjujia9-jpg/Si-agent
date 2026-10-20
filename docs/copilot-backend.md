@@ -2,7 +2,7 @@
 
 Si-agent 通过 FastAPI 接收项目与资料，使用 PostgreSQL 持久化，通过独立 Worker
 导入与索引，再由 React 展示检索结果。当前版本支持单用户多项目，后端已经接通
-自主 Agent Loop 与模型生成；React 已提供聊天、记忆审核、检查台与 Run Trace。
+自主 Agent Loop 与模型生成；React 已提供对话工作台、按需资料/记忆侧栏和独立项目监控。
 
 ## 组件职责
 
@@ -43,68 +43,58 @@ docker compose -f infra/compose.yaml down
 
 ## 本机开发
 
-### 使用已配置的真实模型
+### 当前本机 PostgreSQL 环境
 
-真实模型配置保存在忽略的 `infra/copilot.env`，无密钥模板为 `infra/real-models.env.example`。
-在三个终端分别运行 `python scripts/run_copilot.py api --config infra/copilot.env`、
-`python scripts/run_copilot.py worker --config infra/copilot.env` 和 `python scripts/run_copilot.py web`。
-脚本只启动组件，不创建或迁移数据库。前端地址为 `http://127.0.0.1:5186`，API 使用 8016 端口。
-hy3 需要 18790 SSH 隧道持续运行；前端选择 `openai-compatible / hy3`。
-本轮使用已有演示库的独立副本 `.artifacts/dev/si-real-models.db`，没有覆盖原数据库。
-详细启动、维度迁移、额度和验收范围见[真实模型与基线报告](copilot-week7a-release.md)。
+当前 API、Worker 已切换到 WSL Ubuntu 中的 PostgreSQL 16 / pgvector 0.8.2。
+数据库集群名为 `si-agent`，端口为 55432；API 使用 8016，前端使用 5186。
+连接串和真实模型密钥只保存在忽略的 `infra/copilot.env`，不要提交这个文件。
 
-### 重启现有中文演示环境
-
-2026-10-18 的本机演示复用了上一轮临时 SQLite 数据库。前端地址为
-`http://127.0.0.1:5186`，后端文档地址为 `http://127.0.0.1:8016/docs`。
-该模式用于本机体验；PostgreSQL/pgvector 的完整环境仍按上面的 Compose 命令启动。
-临时数据库不适合长期保管项目资料，也不能代替 PostgreSQL 的并发、全文与向量索引验收。
-
-已经安装依赖时，可以分别在三个 PowerShell 终端启动下列进程。
-前两个终端必须使用同一个数据库地址与向量配置。下面命令只复用已有数据库；
-若数据库不存在，请使用 Compose 环境，不要把生产 Alembic 迁移直接应用到 SQLite。
-
-终端一启动 API：
+先启动数据库（本机已经安装集群，以下命令不安装软件、不清空数据）：
 
 ```powershell
-cd C:\code\agent-study\waku-agent
-$siDemoDb = 'C:\Users\Tang\AppData\Local\Temp\si-week6-34fdc9454ffa44b4a092b309afef0a44.db'
-if (!(Test-Path -LiteralPath $siDemoDb)) { throw '演示库不存在，请使用 Docker Compose 启动完整环境。' }
-$env:SI_DATABASE_URL = 'sqlite:///' + $siDemoDb.Replace('\', '/')
-$env:SI_EMBEDDING_BACKEND = 'hash-demo'
-& .\.venv\Scripts\python.exe -m uvicorn waku.server.app:create_app --factory --host 127.0.0.1 --port 8016
+wsl -d Ubuntu -u root -- bash -lc "pg_ctlcluster --skip-systemctl-redirect 16 si-agent start"
 ```
 
-终端二启动 Worker：
+hy3 需要另一个终端保持 SSH 隧道：
 
 ```powershell
-cd C:\code\agent-study\waku-agent
-$siDemoDb = 'C:\Users\Tang\AppData\Local\Temp\si-week6-34fdc9454ffa44b4a092b309afef0a44.db'
-if (!(Test-Path -LiteralPath $siDemoDb)) { throw '演示库不存在，请使用 Docker Compose 启动完整环境。' }
-$env:SI_DATABASE_URL = 'sqlite:///' + $siDemoDb.Replace('\', '/')
-$env:SI_EMBEDDING_BACKEND = 'hash-demo'
-& .\.venv\Scripts\python.exe -m waku.workers.runner
+ssh -N -L 127.0.0.1:18790:127.0.0.1:18790 aliyun-tang
 ```
 
-终端三启动前端：
+然后在仓库根目录的三个终端分别运行：
 
 ```powershell
-cd C:\code\agent-study\waku-agent\apps\web
-$env:SI_API_URL = 'http://127.0.0.1:8016'
-npm run dev -- --port 5186 --strictPort
+.venv/Scripts/python.exe -X utf8 scripts/run_copilot.py api --config infra/copilot.env
+.venv/Scripts/python.exe -X utf8 scripts/run_copilot.py worker --config infra/copilot.env
+.venv/Scripts/python.exe -X utf8 scripts/run_copilot.py web
 ```
 
-本次执行环境没有可用的 npm 命令入口，但已有 Node 与 node_modules，因此实际使用了等价的启动命令：
+访问 `http://127.0.0.1:5186`，监控入口为 `/monitor`，API 文档为 `http://127.0.0.1:8016/docs`。
+`http://127.0.0.1:5186/ready` 检查代理和数据库，`/api/system` 可以确认实际后端为 `postgresql`。
+只启动前端无法运行智能体；停止 Worker 会使任务停留在队列中。
+该本机配置使用 hy3 和 Qwen 1024 维 Embedding，Jev 保持禁用。模型接入的历史记录见[7A 报告](copilot-week7a-release.md)。
+
+本机已设置 `SI_WORKSPACE_ROOTS=C:/code`，文件浏览器只允许在此范围内关联项目。
+Windows 多个根目录使用分号分隔；Docker 默认不挂载宿主机目录，可以用浏览器导入快照。
+若需要容器读取本地目录，必须明确只读挂载，并在 API 与 Worker 上配置相同的容器内路径。
+
+### 将 Copilot SQLite 数据迁移到 PostgreSQL
+
+本轮迁移保留了原 `.artifacts/dev/si-real-models.db` 和迁移前的 `.pre-postgres.db` 备份。
+上游 `.waku/state.db` 属于另一套存储，不能用这个脚本直接转换。
+
+迁移前停止使用源库的 API/Worker，并备份 SQLite 文件。将 `SI_DATABASE_URL` 明确设置为目标 PostgreSQL 连接串，再运行：
 
 ```powershell
-& 'C:\Users\Tang\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5186 --strictPort
+.venv/Scripts/python.exe -X utf8 scripts/migrate_copilot_sqlite.py PATH_TO_COPILOT_SQLITE
 ```
 
-前端通过 Vite 将 `/api` 与 `/ready` 代理到 8016。仅启动前端只能显示页面，
-停止 Worker 会使导入、抽取与 Agent 运行停留在队列中。
-可以访问 `http://127.0.0.1:5186/ready` 检查前端代理与数据库就绪情况。
-正常返回后，打开页面并新建项目或切换已有项目即可。终端前台运行时，按 Ctrl+C 停止对应服务。
-`hash-demo` 使用演示向量，不提供真实语义检索能力。
+脚本以只读方式打开源库，将目标迁移到 Alembic head，并拒绝覆盖非空目标。
+数据复制、原生全文索引重建和逐项校验在同一目标事务内完成；失败会回滚。
+主键、时间、版本、证据、遗忘屏障、向量、会话、运行、任务和操作关系保持不变。
+确认成功后，API/Worker 必须同时切换目标数据库。脚本不删除源文件。
+
+新项目仍优先使用 Compose，SQLite 只作为离线测试或明确选择的轻量适配器。
 
 ### 使用 PostgreSQL 开发
 
@@ -143,10 +133,15 @@ SQLite 测试通过 `Base.metadata.create_all` 创建独立临时数据库；正
 | `GET /api/runs/{id}/events/stream` | 按序号重放 SSE，暂停或结束时返回快照 |
 | `POST /api/operations/{id}/approval`、`POST /api/runs/{id}/cancel` | 批准/拒绝写工具与取消运行 |
 | `GET /api/models` | 列举后端配置的模型与能力，不返回密钥 |
+| `GET /api/system` | 实际数据库、pgvector 与目录访问能力，不返回连接串 |
+| `GET /api/workspace/directories` | 浏览明确允许的项目目录 |
+| `GET /api/projects/{id}/workspace`、`/workspace/file` | 项目文件清单与受限只读文本访问 |
+| `GET /api/projects/{id}/monitor` | 最近运行和后台任务，独立监控页面的数据入口 |
 | `GET /health`、`GET /ready` | 存活与就绪检查 |
 
-当前导入接受 Markdown、文本和部分代码后缀的路径与正文；界面是粘贴表单，
-尚未提供 Git 仓库、目录上传、PDF 或网页解析器。路径校验拒绝绝对路径、上级跳转等输入。
+当前界面支持文件与目录快照上传，也支持关联项目后的清单扫描与预览导入。
+HTTP 导入协议仍是文本 documents 的路径与正文，尚未提供 Git 拉取、PDF、Word 或网页解析器。
+路径校验拒绝绝对路径、上级跳转等输入。
 
 ## 任务可靠性与 Harness
 
@@ -177,6 +172,7 @@ Worker 使用任务状态、租约时间和 lease token。PostgreSQL 行锁与 `
 | `0005_runtime` | 暂停/unknown 状态、有序运行事件、工具操作与 outbox |
 | `0006_unified_memory` | 消息序号、水位、摘要表示版本和派生记忆重审标记 |
 | `0007_embedding_dimensions` | 放宽 vector 维度约束，保留旧向量并支持模型/维度隔离检索 |
+| `0008_project_workspace` | 保存本地项目根路径与文件夹快照名称，保留原项目数据 |
 
 第三个迁移保留原文、节点 ID、来源事件、revision 与向量。URI 碰撞会让事务失败，
 不会覆盖已有节点。旧 URI 的客户端书签需要更新；原写入请求的 payload hash

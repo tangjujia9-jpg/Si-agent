@@ -162,6 +162,8 @@ def run_routes(sessions, user_id):
             history = [m for m in history if current_history(m)]
             messages = [{"role": m.role, "content": m.content} for m in reversed(history)]
             messages.append({"role": "user", "content": payload.content})
+            if not history and thread.title in {"New conversation", "新会话"}:
+                thread.title = payload.content[:48].replace("\n", " ")
             state = {
                 "user_id": user_id,
                 "provider": payload.provider,
@@ -290,7 +292,9 @@ def run_routes(sessions, user_id):
                 await asyncio.sleep(0.5)
 
         return StreamingResponse(
-            generate(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     @router.post("/api/operations/{operation_id}/approval")

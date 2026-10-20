@@ -14,6 +14,8 @@ class Input(BaseModel):
 class ProjectInput(Input):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=10000)
+    root_path: str | None = Field(default=None, max_length=1000)
+    folder_name: str = Field(default="", max_length=160)
 
 
 class DocumentInput(Input):
@@ -47,8 +49,30 @@ class DocumentInput(Input):
             or any(ord(char) < 32 for char in value)
         ):
             raise ValueError("path must be a relative POSIX path without traversal or URI syntax")
-        if path.suffix.lower() not in {".md", ".txt", ".py", ".ts", ".tsx", ".js", ".json"}:
-            raise ValueError("supported extensions: md, txt, py, ts, tsx, js, json")
+        if path.suffix.lower() not in {
+            ".md",
+            ".txt",
+            ".py",
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".json",
+            ".css",
+            ".html",
+            ".sql",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".rs",
+            ".go",
+            ".java",
+            ".cpp",
+            ".c",
+            ".h",
+            ".sh",
+        }:
+            raise ValueError("unsupported text/code file extension")
         return value
 
 
@@ -79,6 +103,8 @@ class ProjectOutput(Output):
     id: str
     name: str
     description: str
+    root_path: str | None = None
+    folder_name: str = ""
     created_at: datetime
 
 
@@ -261,8 +287,17 @@ class RunInput(Input):
     provider: Literal["demo", "openai", "anthropic", "openai-compatible"] = "demo"
     model: str = Field(default="evidence-demo", min_length=1, max_length=160)
     tools: list[
-        Literal["search_memory", "read_memory", "propose_memory", "change_memory", "forget_memory"]
-    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=5)
+        Literal[
+            "search_memory",
+            "read_memory",
+            "propose_memory",
+            "change_memory",
+            "forget_memory",
+            "list_project_files",
+            "read_project_file",
+            "search_project_files",
+        ]
+    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=8)
     max_iterations: int = Field(default=8, ge=1, le=20)
     max_tokens: int = Field(default=16000, ge=1000, le=100000)
     max_tool_calls: int = Field(default=10, ge=0, le=30)

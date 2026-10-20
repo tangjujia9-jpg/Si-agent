@@ -324,7 +324,8 @@ class PostgresMemory:
             started = time.perf_counter()
             try:
                 vector = validate_vectors(
-                    self.embedder.embed([query.text[:6000]]), 1,
+                    self.embedder.embed([query.text[:6000]]),
+                    1,
                     getattr(self.embedder, "dimensions", DIMENSIONS),
                 )[0]
             except Exception:
@@ -399,67 +400,73 @@ class PostgresMemory:
                     )
                 tokens = list(dict.fromkeys(terms(query.text)))[:64]
                 lexical = []
-                if tokens:
-                    if session.bind.dialect.name == "postgresql":
-                        tsquery = func.to_tsquery(literal_column("'simple'"), " | ".join(tokens))
-                        lexical = session.execute(
-                            statement.where(ContextIndex.search_vector.op("@@")(tsquery))
-                            .order_by(
-                                func.ts_rank_cd(ContextIndex.search_vector, tsquery).desc(),
-                                ContextIndex.id,
+                with observed("lexical_search", {"stage": tier}):
+                    if tokens:
+                        if session.bind.dialect.name == "postgresql":
+                            tsquery = func.to_tsquery(
+                                literal_column("'simple'"), " | ".join(tokens)
                             )
-                            .limit(limit)
-                        ).all()
-                    else:
-                        rows = session.execute(statement).all()
-                        scored = [
-                            (sum(t in set(terms(f"{n.title} {r.body}")) for t in tokens), r, n)
-                            for r, n in rows
-                        ]
-                        lexical = [
-                            (r, n)
-                            for score, r, n in sorted(scored, key=lambda x: (-x[0], x[1].id))
-                            if score > 0
-                        ][:limit]
+                            lexical = session.execute(
+                                statement.where(ContextIndex.search_vector.op("@@")(tsquery))
+                                .order_by(
+                                    func.ts_rank_cd(ContextIndex.search_vector, tsquery).desc(),
+                                    ContextIndex.id,
+                                )
+                                .limit(limit)
+                            ).all()
+                        else:
+                            rows = session.execute(statement).all()
+                            scored = [
+                                (sum(t in set(terms(f"{n.title} {r.body}")) for t in tokens), r, n)
+                                for r, n in rows
+                            ]
+                            lexical = [
+                                (r, n)
+                                for score, r, n in sorted(scored, key=lambda x: (-x[0], x[1].id))
+                                if score > 0
+                            ][:limit]
                 semantic = []
-                if vector is not None:
-                    semantic_statement = statement.where(
-                        ContextIndex.embedding_model == self.embedder.model_id,
-                        ContextIndex.embedding.is_not(None),
-                    )
-                    if session.bind.dialect.name == "postgresql":
-                        # CASE fences the distance operand itself: SQL planners may
-                        # evaluate WHERE predicates in any order across mixed models.
-                        operand = case(
-                            (
-                                (ContextIndex.embedding_model == self.embedder.model_id)
-                                & (func.vector_dims(ContextIndex.embedding) == len(vector)),
-                                ContextIndex.embedding,
-                            ),
-                            else_=None,
+                with observed("vector_search", {"stage": tier}):
+                    if vector is not None:
+                        semantic_statement = statement.where(
+                            ContextIndex.embedding_model == self.embedder.model_id,
+                            ContextIndex.embedding.is_not(None),
                         )
-                        distance = operand.cosine_distance(vector)
-                        semantic = session.execute(
-                            semantic_statement.where(distance < 0.8)
-                            .order_by(distance, ContextIndex.id)
-                            .limit(limit)
-                        ).all()
-                    else:
-                        rows = session.execute(semantic_statement).all()
-                        scored = [
-                            (cosine(vector, r.embedding), r, n) for r, n in rows
-                            if len(r.embedding) == len(vector)
-                        ]
-                        semantic = [
-                            (r, n)
-                            for score, r, n in sorted(scored, key=lambda x: (-x[0], x[1].id))
-                            if score > 0.2
-                        ][:limit]
+                        if session.bind.dialect.name == "postgresql":
+                            # CASE fences the distance operand itself: SQL planners may
+                            # evaluate WHERE predicates in any order across mixed models.
+                            operand = case(
+                                (
+                                    (ContextIndex.embedding_model == self.embedder.model_id)
+                                    & (func.vector_dims(ContextIndex.embedding) == len(vector)),
+                                    ContextIndex.embedding,
+                                ),
+                                else_=None,
+                            )
+                            distance = operand.cosine_distance(vector)
+                            semantic = session.execute(
+                                semantic_statement.where(distance < 0.8)
+                                .order_by(distance, ContextIndex.id)
+                                .limit(limit)
+                            ).all()
+                        else:
+                            rows = session.execute(semantic_statement).all()
+                            scored = [
+                                (cosine(vector, r.embedding), r, n)
+                                for r, n in rows
+                                if len(r.embedding) == len(vector)
+                            ]
+                            semantic = [
+                                (r, n)
+                                for score, r, n in sorted(scored, key=lambda x: (-x[0], x[1].id))
+                                if score > 0.2
+                            ][:limit]
                 fused = {}
-                for branch in (lexical, semantic):
-                    for rank, (row, node) in enumerate(branch, 1):
-                        old = fused.get(row.id, (0.0, row, node))
-                        fused[row.id] = (old[0] + 1 / (60 + rank), row, node)
+                with observed("rank_fusion", {"stage": tier}):
+                    for branch in (lexical, semantic):
+                        for rank, (row, node) in enumerate(branch, 1):
+                            old = fused.get(row.id, (0.0, row, node))
+                            fused[row.id] = (old[0] + 1 / (60 + rank), row, node)
                 out = sorted(fused.values(), key=lambda item: (-item[0], item[2].uri))
                 stages.append(
                     {
@@ -551,8 +558,7 @@ class PostgresMemory:
                         else None,
                     )
                 )
-        with observed("context_compile", {"count": len(hits)}):
-            context = compile_context(hits, query.max_tokens)
+        context = compile_context(hits, query.max_tokens)
         stages.append(
             {
                 "stage": "context_compile",

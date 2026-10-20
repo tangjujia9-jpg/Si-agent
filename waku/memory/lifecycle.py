@@ -16,6 +16,7 @@ from waku.storage.models import (
     MemoryVersion,
     Message,
     Run,
+    RunEvent,
     ToolOperation,
 )
 
@@ -210,6 +211,10 @@ def forget_node(session, node, reason):
             }
             if run.status not in {"succeeded", "failed", "cancelled", "unknown"}:
                 run.status = "cancelled"
+            for event in session.scalars(
+                select(RunEvent).where(RunEvent.run_id == run.id, RunEvent.kind == "llm_delta")
+            ):
+                event.data = {"redacted": True}
             for message in session.scalars(
                 select(Message).where(Message.project_id == current.project_id)
             ):

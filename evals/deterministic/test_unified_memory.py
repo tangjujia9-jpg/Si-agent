@@ -42,7 +42,7 @@ def test_populated_week5_upgrade_backfills_sequences_and_stale_dependencies(back
     from alembic import command
     from alembic.config import Config
 
-    client, sessions = backend
+    _client, sessions = backend
     engine = sessions.kw["bind"]
     if engine.dialect.name != "postgresql":
         pytest.skip("requires historical PostgreSQL schema")
@@ -57,9 +57,15 @@ def test_populated_week5_upgrade_backfills_sequences_and_stale_dependencies(back
             (command.downgrade if downgrade else command.upgrade)(config, target)
 
     migrate("0005_runtime", downgrade=True)
-    pid = project(client)
+    pid = str(uuid4())
     tid, source, fact, downstream, eid, fid = [str(uuid4()) for _ in range(6)]
     with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO projects(id,created_at,user_id,name,description) VALUES (:id,CURRENT_TIMESTAMP,'default','Legacy','')"
+            ),
+            {"id": pid},
+        )
         connection.execute(
             text("""
             INSERT INTO threads(id,created_at,project_id,title)

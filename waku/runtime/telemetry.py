@@ -69,7 +69,7 @@ class Telemetry:
     def span(self, name, attributes=None):
         sid = uuid4().hex[:16]
         start = datetime.now(UTC)
-        clock = time.monotonic()
+        clock = time.perf_counter()
         data = safe_attributes(attributes or {})
         child = Telemetry(self.sink, self.exporter, self.trace_id, sid)
         token = ACTIVE_TRACE.set(child)
@@ -89,7 +89,7 @@ class Telemetry:
                 "trace_id": self.trace_id,
                 "started_at": start.isoformat(),
                 "ended_at": datetime.now(UTC).isoformat(),
-                "duration_ms": round((time.monotonic() - clock) * 1000, 3),
+                "duration_ms": round((time.perf_counter() - clock) * 1000, 3),
                 "status": data.get("status", status),
                 "attributes": safe_attributes(data),
             }

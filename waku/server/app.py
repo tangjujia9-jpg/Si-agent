@@ -46,6 +46,7 @@ from waku.storage.models import (
     MemoryVersion,
     OutboxEvent,
     Project,
+    Run,
     RunEvent,
     Thread,
     ToolOperation,
@@ -124,8 +125,44 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
             session.execute(select(model.id).limit(1))
         return {"status": "ready"}
 
+    @app.get("/api/system")
+    def system_info(session: Session = dependency):
+        backend = database.dialect.name
+        vector = (
+            session.scalar(text("SELECT extversion FROM pg_extension WHERE extname='vector'"))
+            if backend == "postgresql"
+            else None
+        )
+        return {
+            "database": backend,
+            "vector_version": vector,
+            "workspace_enabled": bool(os.environ.get("SI_WORKSPACE_ROOTS")),
+            "langfuse_enabled": bool(os.environ.get("SI_LANGFUSE_HOST")),
+        }
+
+    @app.get("/api/workspace/directories")
+    def workspace_directories(path: str | None = Query(None, max_length=1000)):
+        from waku.server.workspace import directories
+
+        try:
+            return directories(path)
+        except (ValueError, OSError):
+            raise HTTPException(
+                403, "Folder unavailable or outside configured workspace roots"
+            ) from None
+
     @app.post("/api/projects", response_model=ProjectOutput, status_code=201)
     def create_project(payload: ProjectInput, session: Session = dependency):
+        if payload.root_path:
+            from waku.server.workspace import folder
+
+            try:
+                root = folder(payload.root_path)
+            except (ValueError, OSError):
+                raise HTTPException(
+                    403, "Folder unavailable or outside configured workspace roots"
+                ) from None
+            payload.root_path, payload.folder_name = str(root), root.name
         project = Project(user_id=USER_ID, **payload.model_dump())
         session.add(project)
         session.flush()
@@ -136,6 +173,81 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         return session.scalars(
             select(Project).where(Project.user_id == USER_ID).order_by(Project.created_at.desc())
         ).all()
+
+    @app.get("/api/projects/{project_id}/workspace")
+    def workspace_manifest(project_id: str, session: Session = dependency):
+        from waku.server.workspace import folder, manifest
+
+        project = project_or_404(session, project_id)
+        if not project.root_path:
+            return {"files": [], "skipped": 0, "truncated": False, "mode": "snapshot"}
+        try:
+            return {**manifest(folder(project.root_path)), "mode": "local"}
+        except (ValueError, OSError):
+            raise HTTPException(409, "Linked project folder is unavailable") from None
+
+    @app.get("/api/projects/{project_id}/workspace/file")
+    def workspace_file(
+        project_id: str, path: str = Query(max_length=240), session: Session = dependency
+    ):
+        from waku.server.workspace import folder, resolve_file
+
+        project = project_or_404(session, project_id)
+        if not project.root_path:
+            raise HTTPException(409, "Project has no linked local folder")
+        try:
+            return {
+                "path": path,
+                "content": resolve_file(folder(project.root_path), path).read_text(
+                    encoding="utf-8-sig"
+                ),
+            }
+        except (ValueError, OSError):
+            raise HTTPException(403, "File unavailable, excluded or not UTF-8 text") from None
+
+    @app.get("/api/projects/{project_id}/monitor")
+    def project_monitor(project_id: str, session: Session = dependency):
+        project_or_404(session, project_id)
+        runs = session.scalars(
+            select(Run)
+            .where(Run.project_id == project_id)
+            .order_by(Run.created_at.desc())
+            .limit(100)
+        ).all()
+        jobs = session.scalars(
+            select(Job)
+            .where(Job.project_id == project_id)
+            .order_by(Job.created_at.desc())
+            .limit(100)
+        ).all()
+        return {
+            "runs": [
+                {
+                    "id": r.id,
+                    "thread_id": r.thread_id,
+                    "status": r.status,
+                    "model": r.model,
+                    "query": r.context.get("query", "")[:160],
+                    "trace_id": r.trace_id,
+                    "created_at": r.created_at,
+                    "usage_tokens": r.context.get("usage_tokens", 0),
+                    "iterations": r.context.get("iterations", 0),
+                    "error_code": r.context.get("error_code"),
+                }
+                for r in runs
+            ],
+            "jobs": [
+                {
+                    "id": j.id,
+                    "kind": j.kind,
+                    "status": j.status,
+                    "attempts": j.attempts,
+                    "error": j.error,
+                    "result": j.result,
+                }
+                for j in jobs
+            ],
+        }
 
     @app.post("/api/projects/{project_id}/ingest", response_model=JobOutput, status_code=202)
     def ingest(project_id: str, payload: IngestInput, session: Session = dependency):
@@ -293,14 +405,25 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
 
     @app.get("/api/projects/{project_id}/memory/candidates", response_model=list[CandidateOutput])
     def candidates(
-        project_id: str, session: Session = dependency, limit: int = Query(100, ge=1, le=500)
+        project_id: str,
+        session: Session = dependency,
+        limit: int = Query(100, ge=1, le=500),
+        status: str | None = Query(
+            None,
+            pattern="^(pending|applied|skipped|conflict)(,(pending|applied|skipped|conflict))*$",
+        ),
+        offset: int = Query(0, ge=0),
     ):
         project_or_404(session, project_id)
         return session.scalars(
             select(MemoryCandidate)
-            .where(MemoryCandidate.project_id == project_id)
-            .order_by(MemoryCandidate.created_at.desc())
+            .where(
+                MemoryCandidate.project_id == project_id,
+                *([MemoryCandidate.status.in_(status.split(","))] if status else []),
+            )
+            .order_by(MemoryCandidate.created_at.desc(), MemoryCandidate.id)
             .limit(limit)
+            .offset(offset)
         ).all()
 
     @app.post(
@@ -337,7 +460,9 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         session.refresh(candidate)
         if candidate.status == "skipped":
             return candidate
-        if candidate.status != "pending" or candidate.job_id:
+        if candidate.status not in {"pending", "conflict"} or (
+            candidate.status == "pending" and candidate.job_id
+        ):
             raise HTTPException(409, "Candidate already accepted or resolved")
         candidate.status, candidate.reason = "skipped", "user_skipped"
         return candidate

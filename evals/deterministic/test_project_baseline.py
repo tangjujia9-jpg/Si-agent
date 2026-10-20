@@ -169,5 +169,5 @@ def test_dimension_migration_preserves_vectors_and_refuses_lossy_downgrade(backe
     with pytest.raises(DBAPIError):
         migrate("0006_unified_memory", downgrade=True)
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007_embedding_dimensions"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008_project_workspace"
         assert connection.scalar(text("SELECT vector_dims(embedding) FROM context_indexes WHERE embedding IS NOT NULL LIMIT 1")) == 1024

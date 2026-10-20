@@ -6,7 +6,7 @@
 Read this before opening a PR or filing an issue: most of what is already
 known-broken is below, and half of it already has a fix in flight.
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-10-20
 
 ---
 
@@ -22,6 +22,12 @@ memory, budgets, operation approvals, outbox and durable checkpoints. OpenAI,
 Anthropic and compatible adapters, optional Jev decisions, Langfuse OTLP export
 and a callable LangGraph workflow adapter are implemented. React chat/SSE, operation
 approvals, candidate review, memory inspection and Run Trace are implemented.
+The Chinese project/thread workspace now supports durable model text streaming,
+inline tool progress/approval, folder-linked read-only tools and snapshot imports.
+Sources and memory open in drawers; `/monitor` provides an independent project
+trace/worker view. The local API/worker now use PostgreSQL 16 / pgvector 0.8.2;
+the original Copilot SQLite database remains backed up. Migration 0008 adds folder
+association. See [copilot-workspace-release.md](copilot-workspace-release.md).
 The product console defaults to Chinese; [copilot-console.zh-CN.md](copilot-console.zh-CN.md)
 describes its controls and current limits. Model identifiers, source content and raw trace fields retain their original values.
 Live hy3 text/tool/vision/stream probes and Qwen 1024-dimensional embeddings

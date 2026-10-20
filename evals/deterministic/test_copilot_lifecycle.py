@@ -456,10 +456,16 @@ def test_populated_week3_migration_preserves_source_and_refuses_forget_downgrade
             (command.downgrade if downgrade else command.upgrade)(config, revision)
 
     migrate("0003_si_namespace", downgrade=True)
-    pid = project(client)
     with sessions.begin() as session:
         from uuid import uuid4
 
+        pid = str(uuid4())
+        session.execute(
+            text(
+                "INSERT INTO projects(id,created_at,user_id,name,description) VALUES (:id,CURRENT_TIMESTAMP,'default','Legacy','')"
+            ),
+            {"id": pid},
+        )
         node_id = str(uuid4())
         # Historical fixtures must use the historical schema, not today's ORM.
         session.execute(

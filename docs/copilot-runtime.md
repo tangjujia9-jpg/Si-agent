@@ -84,7 +84,8 @@ API 消息示例：
 向 `POST /api/threads/{thread_id}/messages` 提交后拿到 run ID，再订阅
 `GET /api/runs/{id}/events/stream?after=0`。重连可用已收到的序号作为 after。
 SSE 包含 run_start、memory_search、llm_start/end、tool_start/end、approval_required、
-span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
+span、run_pause/end 和最终 snapshot；支持流式的模型还发送 llm_stream_start 和批量持久化的 llm_delta。
+输出部分文字后的失败不会自动重试；不完整模型流不能成为最终答案。
 浏览器断线自动使用 Last-Event-ID 续接，手动客户端也可传 after；审批暂停时连接继续发送快照。
 页面刷新从持久化消息与运行记录恢复。活动运行截止时间仍包含等待用户审批的时间。
 
@@ -97,7 +98,7 @@ span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
 | 文件 | 职责 |
 |---|---|
 | `waku/runtime/runner.py` | 自主 Loop、检查点、预算、恢复、审批/outbox 驱动 |
-| `waku/tools/executor.py`、`memory_actions.py` | 严格 schema、动态工具、受控记忆变更与结构化结果 |
+| `waku/tools/executor.py`、`memory_actions.py`、`project_files.py` | 严格 schema、动态工具、受控记忆变更与结构化结果 |
 | `waku/providers/adapters.py`、`catalog.py` | 模型协议转换、流式适配、后端凭据与能力目录 |
 | `waku/runtime/decisions.py` | 本地规则、Jev、置信度与错误降级 |
 | `waku/runtime/telemetry.py` | 真实调用 span、脱敏、OTLP 与有界导出 |
@@ -109,3 +110,5 @@ span、run_pause/end 和最终 snapshot；目前没有聊天 token delta。
 SDK wire-format 测试不能替代质量评测。
 
 统一阶段的会话蒸馏、表示版本与默认检索变更见[统一记忆验收报告](copilot-unified-memory-release.md)。
+
+文件工具的列表、读取和搜索结果受 JSON 字节预算限制，并提供续读位置。待执行工具队列与 assistant tool_calls 分别保存，消费队列不会清空发送给模型的调用历史。

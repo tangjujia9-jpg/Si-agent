@@ -1,152 +1,453 @@
-import { label, nodeTitle, uiMessage } from './ui';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { MemorySearch } from './MemorySearch';
-import { api, type ProjectNode as Node, type Job } from './api';
-import { Chat } from './Chat';
-import { MemoryInspector } from './MemoryInspector';
-import { MemoryReview } from './MemoryReview';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Activity,
+  ArrowLeft,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Menu,
+  MessageSquare,
+  Plus,
+  Search,
+  SquarePen,
+  X,
+} from "lucide-react";
+import { api, post, type Project, type ProjectNode, type Thread } from "./api";
+import { Chat } from "./Chat";
+import { ProjectDialog } from "./ProjectDialog";
+import { Sources } from "./Sources";
+import { MemoryReview } from "./MemoryReview";
+import { MemoryInspector } from "./MemoryInspector";
+import { MemorySearch } from "./MemorySearch";
+import { Monitor } from "./Monitor";
+import type { SourceFile } from "./files";
 
-type Project = { id: string; name: string; description: string };
 export function App() {
-  const [tab, setTab] = useState('chat');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threadId, setThreadId] = useState("");
+  const [nodes, setNodes] = useState<ProjectNode[]>([]);
+  const [drawer, setDrawer] = useState("");
+  const [selected, setSelected] = useState<ProjectNode | null>(null);
+  const [dialog, setDialog] = useState(false);
+  const [error, setError] = useState("");
+  const [sidebar, setSidebar] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [projects, set项目列表] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
-  const currentProject = useRef(projectId); currentProject.current = projectId;
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [selected, setSelected] = useState<Node | null>(null);
-  const [name, setName] = useState('');
-  const [path, setPath] = useState('docs/architecture.md');
-  const [content, setContent] = useState('');
-  const [job, setJob] = useState<Job | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
-
+  const [initialFiles, setInitialFiles] = useState<SourceFile[]>([]);
+  const [system, setSystem] = useState<{
+    database: string;
+    vector_version?: string;
+    workspace_enabled?: boolean;
+  } | null>(null);
+  const scope = useRef(projectId);
+  scope.current = projectId;
+  const pendingSources = useRef("");
+  const project = projects.find((p) => p.id === projectId);
   useEffect(() => {
     let active = true;
-    Promise.all([api<Project[]>('/api/projects'), api('/ready')]).then(([rows]) => {
-      if (active) { set项目列表(rows); setProjectId(rows[0]?.id || ''); setReady(true); }
-    }).catch(e => { if (active) setError(uiMessage(e.message)); });
-    return () => { active = false; };
+    void Promise.all([
+      api<Project[]>("/api/projects"),
+      api<typeof system>("/api/system"),
+    ])
+      .then(([rows, status]) => {
+        if (!active) return;
+        setProjects(rows);
+        setSystem(status);
+        const query = new URLSearchParams(location.search).get("project");
+        setProjectId(
+          rows.find((p) => p.id === query)?.id ||
+            rows.find((p) => p.id === localStorage.getItem("si-project"))?.id ||
+            rows[0]?.id ||
+            "",
+        );
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
   useEffect(() => {
-    setNodes([]); setSelected(null); setJob(null);
+    setThreads([]);
+    setThreadId("");
+    setNodes([]);
+    setSelected(null);
+    setDrawer(pendingSources.current === projectId ? "sources" : "");
+    pendingSources.current = "";
     if (!projectId) return;
+    localStorage.setItem("si-project", projectId);
     const abort = new AbortController();
-    api<Node[]>(`/api/projects/${projectId}/context/tree`, { signal: abort.signal }).then(setNodes)
-      .catch(e => { if (!abort.signal.aborted) setError(uiMessage(e.message)); });
+    void Promise.all([
+      api<Thread[]>(`/api/projects/${projectId}/threads`, {
+        signal: abort.signal,
+      }),
+      api<ProjectNode[]>(`/api/projects/${projectId}/context/tree`, {
+        signal: abort.signal,
+      }),
+    ])
+      .then(([rows, tree]) => {
+        if (abort.signal.aborted) return;
+        setThreads(rows);
+        setNodes(tree);
+        setThreadId(
+          rows.find(
+            (t) => t.id === localStorage.getItem(`si-thread:${projectId}`),
+          )?.id ||
+            rows[0]?.id ||
+            "",
+        );
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted) setError(e.message);
+      });
     return () => abort.abort();
   }, [projectId]);
-
-  useEffect(() => {
-    if (!job || !['queued', 'running'].includes(job.status)) return;
-    let active = true;
-    const timer = window.setInterval(() => {
-      api<Job>(`/api/jobs/${job.id}`).then(async updated => {
-        if (!active) return;
-        if (updated.status === 'succeeded') {
-          const rows = await api<Node[]>(`/api/projects/${projectId}/context/tree`);
-          if (active) setNodes(rows);
-        }
-        if (active) setJob(updated);
-      }).catch(e => { if (active) setError(uiMessage(e.message)); });
-    }, 1500);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [job?.id, job?.status, projectId]);
-
-  async function createProject(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError('');
-    try {
-      const row = await api<Project>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) });
-      set项目列表(previous => [row, ...previous]); setProjectId(row.id); setName('');
-    } catch (e) { setError(uiMessage((e as Error).message)); } finally { setBusy(false); }
-  }
-
-  async function ingest(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError('');
-    try {
-      setJob(await api<Job>(`/api/projects/${projectId}/ingest`, { method: 'POST', body: JSON.stringify({
-        idempotency_key: crypto.randomUUID(), documents: [{ path, content }],
-      }) }));
-    } catch (e) { setError(uiMessage((e as Error).message)); } finally { setBusy(false); }
-  }
-
-  async function inspect(node: Node) {
-    const scope = projectId;
-    setSelected(node);
-    try {
-      const detail = await api<Node>(`/api/memory/${node.id}`);
-      if (currentProject.current === scope) setSelected(current => current?.id === detail.id ? detail : current);
-    } catch (e) { setError(uiMessage((e as Error).message)); }
-  }
-
   const refresh = useCallback(() => {
     if (!projectId) return;
-    void api<Node[]>(`/api/projects/${projectId}/context/tree`).then(rows => { if (currentProject.current === projectId) { setNodes(rows); setRevision(r => r + 1); } }).catch(e => { if (currentProject.current === projectId) setError(uiMessage(e.message)); });
+    void Promise.all([
+      api<ProjectNode[]>(`/api/projects/${projectId}/context/tree`),
+      api<Thread[]>(`/api/projects/${projectId}/threads`),
+    ])
+      .then(([tree, rows]) => {
+        if (scope.current === projectId) {
+          setNodes(tree);
+          setThreads(rows);
+          setRevision((n) => n + 1);
+        }
+      })
+      .catch((e) => setError(e.message));
   }, [projectId]);
-
   async function inspectId(id: string) {
-    const scope = projectId;
-    try { const node = await api<Node>(`/api/memory/${id}`); if (currentProject.current === scope) await inspect(node); } catch (e) { if (currentProject.current === scope) setError(uiMessage((e as Error).message)); }
+    const current = projectId;
+    try {
+      const node = await api<ProjectNode>(`/api/memory/${id}`);
+      if (scope.current === current) {
+        setSelected(node);
+        setDrawer((value) => value || "sources");
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
   function openUri(uri: string) {
-    const node = nodes.find(n => n.uri === uri);
-    if (node) void inspect(node); else setError('当前项目中没有可打开的有效引用来源，请刷新后重试。');
+    const node = nodes.find((n) => n.uri === uri);
+    if (node) void inspectId(node.id);
+    else {
+      refresh();
+      setError("当前来源已变化，请刷新资料后重试。");
+    }
   }
-
-  const project = projects.find(p => p.id === projectId);
-  const resources = nodes.filter(n => n.kind === 'resource');
-  return <div className="studio">
-    <aside className="rail">
-      <a className="wordmark" href="/">si<span>↗</span><small>项目上下文工作台</small></a>
-      <div className="rail-label">我的项目 <span>{projects.length.toString().padStart(2, '0')}</span></div>
-      <nav aria-label="项目列表">{projects.map(p => <button key={p.id} className={p.id === projectId ? 'project active' : 'project'}
-        onClick={() => setProjectId(p.id)}><span className="project-icon">P</span>{p.name}</button>)}</nav>
-      <form className="new-project" onSubmit={createProject}>
-        <label htmlFor="project-name">创建项目</label>
-        <input id="project-name" value={name} maxLength={160} placeholder="输入项目名称" onChange={e => setName(e.target.value)} required />
-        <button disabled={busy || !ready}>添加项目 +</button>
-      </form>
-      <div className="rail-footer"><i className={ready ? 'online' : ''} />{ready ? '后端已连接' : '正在连接后端'}<small>单用户 · 多项目</small></div>
-    </aside>
-    <main>
-      <header><span>项目 / {project?.name || '开始使用'}</span><span className="phase">项目开发智能体</span></header>
-      <section className="intro"><div><p className="eyebrow">让项目知识有据可查</p><h1>{project?.name || '建立你的项目上下文'}</h1>
-        <p>依据项目资料展开对话。<br className="desktop"/> 让每项决策可检查、可纠错、可记忆。</p></div>
-        <div className="resource-count"><strong>{resources.length.toString().padStart(2, '0')}</strong><span>份来源文档</span></div></section>
-      {error && <div className="error" role="alert">{error}<button onClick={() => setError('')} aria-label="关闭错误提示">×</button></div>}
-      {!projectId ? <div className="empty"><span>01 / 从这里开始</span><h2>从创建项目开始积累知识。</h2><p>在左侧创建项目。每个项目拥有独立的资料与记忆空间。</p></div> : <>
-        <div className="workspace-nav" role="tablist" aria-label="项目功能">{[['chat', '项目对话'], ['context', '上下文浏览'], ['review', '记忆审核']].map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{label}{id === 'review' && nodes.some(n => n.needs_review) ? ' · 待复核' : ''}</button>)}<button className="refresh-button" onClick={refresh}>刷新 ↻</button></div>
-        <div role="tabpanel">
-        {tab === 'chat' && <Chat key={projectId} projectId={projectId} open={openUri} changed={refresh} />}
-        {tab === 'review' && <MemoryReview key={projectId} projectId={projectId} nodes={nodes} open={id => void inspectId(id)} changed={refresh} />}
-        {tab === 'context' && <><div className="workspace-grid">
-          <section className="panel import-panel"><div className="panel-heading"><h2>导入资料</h2><span>01</span></div>
-            <form onSubmit={ingest}>
-              <label htmlFor="path">文档路径</label><input id="path" value={path} onChange={e => setPath(e.target.value)} required maxLength={240}/>
-              <label htmlFor="content">资料正文</label><textarea id="content" value={content} onChange={e => setContent(e.target.value)} required
-                placeholder={'# 项目决策\n\n粘贴 Markdown、笔记或源代码……'} maxLength={200000}/>
-              <div className="form-footer"><span>Markdown · 文本 · 代码</span><button disabled={busy || ['queued', 'running'].includes(job?.status || '')}>导入文档 ↗</button></div>
-            </form>
-            {job && <div className="job" role="status"><b>{label(job.status)}</b><span>尝试次数 {job.attempts} · {job.id.slice(0, 8)}</span>{job.error && <p>{uiMessage(job.error)}</p>}</div>}
-          </section>
-          <section className="panel tree-panel"><div className="panel-heading"><h2>上下文浏览</h2><span>02</span></div>
-            <div className="namespace">si://users/default/projects/…</div>
-            {!nodes.length ? <p className="placeholder">导入第一份资料后，这里会显示上下文目录。</p> : <div className="tree" role="list">
-              {nodes.map(n => <button key={n.id} className={selected?.id === n.id ? 'tree-node chosen' : 'tree-node'}
-                style={{ paddingLeft: `${12 + Math.max(0, n.uri.split('/').length - 7) * 14}px` }}
-                onClick={() => void inspect(n)}><span>{n.kind === 'directory' ? '▱' : '≡'}</span>{nodeTitle(n)}<small>{n.kind === 'resource' ? `v${n.revision}` : ''}</small></button>)}
-            </div>}
-          </section>
+  async function newThread() {
+    if (!projectId) {
+      setDialog(true);
+      return;
+    }
+    try {
+      const thread = await post<Thread>("/api/threads", {
+        project_id: projectId,
+        title: "新会话",
+      });
+      setThreads((rows) => [thread, ...rows]);
+      setThreadId(thread.id);
+      setSidebar(false);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  function showDrawer(name: string) {
+    setSelected(null);
+    setDrawer((current) => (current === name ? "" : name));
+  }
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDrawer("");
+        setSelected(null);
+        setSidebar(false);
+      }
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, []);
+  if (location.pathname === "/monitor")
+    return <Monitor projects={projects} initial={projectId} />;
+  return (
+    <div className={`workspace ${sidebar ? "sidebar-open" : ""}`}>
+      {sidebar && (
+        <button
+          className="sidebar-scrim"
+          aria-label="关闭导航"
+          onClick={() => setSidebar(false)}
+        />
+      )}
+      <aside className="sidebar">
+        <div className="brand">
+          <a href="/" aria-label="Si-agent 首页">
+            <span className="brand-symbol">sı</span>
+            <b>Si-agent</b>
+          </a>
+          <button
+            className="icon-button"
+            aria-label="添加项目"
+            onClick={() => setDialog(true)}
+          >
+            <Plus size={18} />
+          </button>
         </div>
-        <MemorySearch projectId={projectId} inspect={id => void inspectId(id)} />
-        </>}
+        <button className="new-thread" onClick={() => void newThread()}>
+          <SquarePen size={17} />
+          新对话
+        </button>
+        <div className="sidebar-section">
+          <span>项目</span>
+          <button
+            className="icon-button"
+            aria-label="新建项目"
+            onClick={() => setDialog(true)}
+          >
+            <Plus size={14} />
+          </button>
         </div>
-        {selected && <MemoryInspector key={projectId + selected.id} nodeId={selected.id} projectId={projectId} revision={revision} changed={refresh} open={id => void inspectId(id)} />}
-      </>}
-      <footer>SI-AGENT <span>项目隔离记忆 · 回答附带引用 · 操作全程可查</span></footer>
-    </main>
-  </div>;
+        <nav className="project-navigation" aria-label="项目与会话">
+          {projects.map((p) => (
+            <div key={p.id} className="project-group">
+              <button
+                className={`project-link ${p.id === projectId ? "selected" : ""}`}
+                onClick={() => {
+                  setInitialFiles([]);
+                  setProjectId(p.id);
+                  setSidebar(false);
+                }}
+              >
+                <Folder size={16} />
+                <span>{p.name}</span>
+                {p.id === projectId ? (
+                  <ChevronDown size={13} />
+                ) : (
+                  <ChevronRight size={13} />
+                )}
+              </button>
+              {p.id === projectId && (
+                <div className="thread-list">
+                  {threads.map((t) => (
+                    <button
+                      key={t.id}
+                      className={t.id === threadId ? "selected" : ""}
+                      onClick={() => {
+                        setThreadId(t.id);
+                        setSidebar(false);
+                      }}
+                    >
+                      <MessageSquare size={13} />
+                      <span>
+                        {t.title === "New conversation" ? "新会话" : t.title}
+                      </span>
+                    </button>
+                  ))}
+                  {!threads.length && (
+                    <button onClick={() => void newThread()}>
+                      <Plus size={13} />
+                      开启第一段对话
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <a
+            href={`/monitor?project=${projectId}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Activity size={16} />
+            项目监控
+            <ChevronRight size={13} />
+          </a>
+          <div className="backend-status">
+            <i className={system?.database === "postgresql" ? "online" : ""} />
+            <span>
+              {system
+                ? system.database === "postgresql"
+                  ? `PostgreSQL · pgvector ${system.vector_version || ""}`
+                  : "SQLite · 开发模式"
+                : "正在连接后端"}
+            </span>
+          </div>
+        </div>
+      </aside>
+      <main className="main-workspace">
+        <header className="workspace-header">
+          <button
+            className="icon-button mobile-menu"
+            aria-label="打开导航"
+            onClick={() => setSidebar((v) => !v)}
+          >
+            <Menu size={18} />
+          </button>
+          <div className="project-heading">
+            <FolderOpen size={17} />
+            <strong>{project?.name || "工作台"}</strong>
+            <span className="folder-mode">
+              {project?.root_path ? "本地项目" : project ? "资料快照" : ""}
+            </span>
+          </div>
+          <div className="header-actions">
+            <button
+              className={drawer === "sources" ? "active" : ""}
+              disabled={!project}
+              onClick={() => showDrawer("sources")}
+            >
+              <FolderOpen size={16} />
+              <span>项目资料</span>
+            </button>
+            <button
+              className={drawer === "memory" ? "active" : ""}
+              disabled={!project}
+              onClick={() => showDrawer("memory")}
+            >
+              <BookOpen size={16} />
+              <span>项目记忆</span>
+            </button>
+            <button
+              className="icon-button"
+              disabled={!project}
+              aria-label="检索资料"
+              onClick={() => showDrawer("search")}
+            >
+              <Search size={17} />
+            </button>
+          </div>
+        </header>
+        {error && (
+          <div className="app-error" role="alert">
+            {error}
+            <button
+              className="icon-button"
+              aria-label="关闭错误"
+              onClick={() => setError("")}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {project ? (
+          <Chat
+            key={projectId}
+            projectId={projectId}
+            threadId={threadId}
+            onThread={(thread) => {
+              setThreads((rows) => [thread, ...rows]);
+              setThreadId(thread.id);
+            }}
+            open={openUri}
+            changed={refresh}
+            onSources={() => showDrawer("sources")}
+          />
+        ) : (
+          <div className="workspace-empty">
+            <span className="brand-symbol">sı</span>
+            <h1>给项目一个共同的工作空间。</h1>
+            <p>关联文件夹，从第一段对话开始。</p>
+            <button onClick={() => setDialog(true)}>
+              <FolderOpen size={16} />
+              添加项目
+            </button>
+          </div>
+        )}
+      </main>
+      {drawer && project && (
+        <aside
+          className="context-drawer"
+          aria-label={
+            selected
+              ? "来源面板"
+              : drawer === "sources"
+                ? "项目资料"
+                : drawer === "memory"
+                  ? "项目记忆"
+                  : "检索资料"
+          }
+        >
+          <div className="drawer-heading">
+            {selected ? (
+              <button className="text-button" onClick={() => setSelected(null)}>
+                <ArrowLeft size={16} />
+                返回
+              </button>
+            ) : (
+              <h2>
+                {drawer === "sources"
+                  ? "项目资料"
+                  : drawer === "memory"
+                    ? "项目记忆"
+                    : "检索资料"}
+              </h2>
+            )}
+            <button
+              className="icon-button"
+              aria-label="关闭侧栏"
+              onClick={() => {
+                setDrawer("");
+                setSelected(null);
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="drawer-body">
+            {selected ? (
+              <MemoryInspector
+                key={selected.id}
+                nodeId={selected.id}
+                projectId={projectId}
+                revision={revision}
+                changed={refresh}
+                open={(id) => void inspectId(id)}
+              />
+            ) : drawer === "sources" ? (
+              <Sources
+                key={projectId}
+                project={project}
+                nodes={nodes}
+                initial={initialFiles}
+                inspect={setSelected}
+                changed={refresh}
+              />
+            ) : drawer === "memory" ? (
+              <MemoryReview
+                key={projectId}
+                projectId={projectId}
+                nodes={nodes}
+                open={(id) => void inspectId(id)}
+                changed={refresh}
+              />
+            ) : (
+              <MemorySearch
+                projectId={projectId}
+                inspect={(id) => void inspectId(id)}
+              />
+            )}
+          </div>
+        </aside>
+      )}
+      {dialog && (
+        <ProjectDialog
+          close={() => setDialog(false)}
+          created={(p, files) => {
+            pendingSources.current = p.id;
+            setProjects((rows) => [p, ...rows]);
+            setInitialFiles(files);
+            setProjectId(p.id);
+            setDialog(false);
+          }}
+        />
+      )}
+    </div>
+  );
 }

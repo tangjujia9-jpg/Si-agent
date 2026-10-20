@@ -43,6 +43,8 @@ class Project(Identity, Base):
     user_id: Mapped[str] = mapped_column(String(80), default="default", index=True)
     name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text, default="")
+    root_path: Mapped[str | None] = mapped_column(Text)
+    folder_name: Mapped[str] = mapped_column(String(160), default="", server_default="")
 
 
 class Thread(Identity, Base):
