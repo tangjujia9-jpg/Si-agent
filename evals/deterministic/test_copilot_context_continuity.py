@@ -284,8 +284,10 @@ def test_compaction_approval_and_resume_do_not_replay_or_expand_durable_results(
     paused = client.get(f"/api/runs/{rid}").json()
     assert paused["status"] == "waiting_approval" and model.summary_requests and not calls
     oid = paused["operations"][0]["id"]
+    assert client.get(f"/api/runs/{rid}/context").json()["working_state"]["operations"][0]["status"] == "pending"
     client.post(f"/api/operations/{oid}/approval", json={"approved": True})
     run_job(sessions, runtime)
+    assert client.get(f"/api/runs/{rid}/context").json()["working_state"]["operations"][0]["status"] == "succeeded"
     restarted = Runtime(sessions, runtime.memory, tools, provider_factory=lambda *a, **k: model)
     run_job(sessions, restarted)
     assert client.get(f"/api/runs/{rid}").json()["status"] == "succeeded"

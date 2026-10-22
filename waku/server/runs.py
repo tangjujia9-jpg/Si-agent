@@ -11,7 +11,12 @@ from sqlalchemy import select
 
 from waku.runtime.budget import totals
 from waku.runtime.compaction import fingerprint
-from waku.runtime.context_store import dependencies_valid, latest_summary, summary_state
+from waku.runtime.context_store import (
+    dependencies_valid,
+    latest_summary,
+    summary_state,
+    working_state,
+)
 from waku.runtime.runner import (
     TERMINAL,
     append_event,
@@ -280,7 +285,7 @@ def run_routes(sessions, user_id):
                 for d in (state, summary.get("dependencies", {})))
             return {
                 "summary": summary if valid else {},
-                "working_state": state.get("working_state", {}) if valid else {},
+                "working_state": working_state(session, run.id, state) if valid else {},
                 "budget_usage": totals(state),
                 "budget_ledger": state.get("budget_ledger", []),
                 "compaction_cursor": state.get("compaction_cursor", 0),

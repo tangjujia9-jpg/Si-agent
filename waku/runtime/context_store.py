@@ -3,7 +3,21 @@
 from sqlalchemy import select
 
 from waku.runtime.compaction import POLICY, fingerprint
-from waku.storage.models import ContextNode, ContextSummary, MemoryEvidence, Message
+from waku.storage.models import ContextNode, ContextSummary, MemoryEvidence, Message, ToolOperation
+
+
+def working_state(session, run_id, state):
+    operations = list(session.scalars(select(ToolOperation).where(
+        ToolOperation.run_id == run_id
+    ).order_by(ToolOperation.created_at, ToolOperation.id)))
+    return {
+        "goal": state["query"],
+        "operations": [{"id": op.id, "tool": op.tool, "status": op.status,
+                        "resource_id": op.result.get("resource_id"),
+                        "error_code": op.result.get("error_code")} for op in operations],
+        "tool_count": state["tool_count"],
+        "pending_call_ids": [c["id"] for c in state.get("pending_calls", [])],
+    }
 
 
 def dependencies_valid(session, project_id, dependencies):

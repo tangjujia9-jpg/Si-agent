@@ -17,8 +17,8 @@ from waku.runtime.compaction import (
     summary_input,
     validate_summary,
 )
-from waku.runtime.context_store import dependencies_valid, summary_state
-from waku.storage.models import ContextSummary, ToolOperation, now
+from waku.runtime.context_store import dependencies_valid, summary_state, working_state
+from waku.storage.models import ContextSummary, now
 
 
 class ContextManager:
@@ -31,17 +31,7 @@ class ContextManager:
 
     def prepare(self, request, hits, window, *, force=False):
         with self.runtime.sessions() as session:
-            operations = list(session.scalars(select(ToolOperation).where(
-                ToolOperation.run_id == self.rid
-            ).order_by(ToolOperation.created_at.desc(), ToolOperation.id)))
-            self.state["working_state"] = {
-                "goal": self.state["query"],
-                "operations": [{"id": op.id, "tool": op.tool, "status": op.status,
-                                "resource_id": op.result.get("resource_id"),
-                                "error_code": op.result.get("error_code")} for op in reversed(operations)],
-                "tool_count": self.state["tool_count"],
-                "pending_call_ids": [c["id"] for c in self.state.get("pending_calls", [])],
-            }
+            self.state["working_state"] = working_state(session, self.rid, self.state)
         available = window - request.max_tokens - margin(window)
         if available <= 0:
             raise ValueError("context_budget")
