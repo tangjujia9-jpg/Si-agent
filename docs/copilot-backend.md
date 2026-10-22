@@ -73,6 +73,8 @@ ssh -N -L 127.0.0.1:18790:127.0.0.1:18790 aliyun-tang
 `http://127.0.0.1:5186/ready` 检查代理和数据库，`/api/system` 可以确认实际后端为 `postgresql`。
 只启动前端无法运行智能体；停止 Worker 会使任务停留在队列中。
 该本机配置使用 hy3 和 Qwen 1024 维 Embedding，Jev 保持禁用。模型接入的历史记录见[7A 报告](copilot-week7a-release.md)。
+2026-10-22 已将本机 `SI_COMPATIBLE_CONTEXT_WINDOW` 从 32,768 调整为 65,536；
+实测范围和后续压缩方案见[长任务上下文设计](si-context-and-tools-design.zh-CN.md)。
 
 本机已设置 `SI_WORKSPACE_ROOTS=C:/code`，文件浏览器只允许在此范围内关联项目。
 Windows 多个根目录使用分号分隔；Docker 默认不挂载宿主机目录，可以用浏览器导入快照。
