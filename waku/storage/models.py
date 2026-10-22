@@ -99,6 +99,30 @@ class RunEvent(Identity, Base):
     data: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
 
 
+class ContextSummary(Identity, Base):
+    """Derived working context; raw messages and operation results remain authoritative."""
+
+    __tablename__ = "context_summaries"
+    __table_args__ = (
+        UniqueConstraint("run_id", "input_hash", name="uq_summary_run_input"),
+        Index("ix_summary_thread_boundary", "thread_id", "covered_sequence"),
+        ForeignKeyConstraint(["thread_id", "project_id"], ["threads.id", "threads.project_id"]),
+        CheckConstraint("status IN ('valid','invalid','redacted')", name="summary_status"),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    thread_id: Mapped[str] = mapped_column(String(36))
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    input_hash: Mapped[str] = mapped_column(String(64))
+    covered_count: Mapped[int] = mapped_column(Integer)
+    covered_sequence: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="valid")
+    model: Mapped[str] = mapped_column(String(160))
+    policy_version: Mapped[str] = mapped_column(String(40), default="working-context-v1")
+    body: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    dependencies: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    metrics: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+
+
 class ToolOperation(Identity, Base):
     __tablename__ = "tool_operations"
     __table_args__ = (

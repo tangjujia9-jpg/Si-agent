@@ -11,7 +11,7 @@ Si-agent 是面向项目开发与知识工作的 AI Agent，支持项目文件�
 - **长期记忆**：用 `si://` 组织资料、事实、事件和流程，支持 L0 摘要、L1 概览、L2 原文与证据引用。
 - **混合检索**：PostgreSQL 全文检索与 pgvector 融合，检查项目范围、有效性、来源版本和遗忘屏障。
 - **记忆生命周期**：异步导入、候选抽取、确认、修正、版本、冲突与忘记；原始记录和表示层更新分离。
-- **Agent Harness**：模型与工具预算、上下文收缩、工具入参校验、操作幂等、审批、outbox、检查点及持久化事件流。
+- **Agent Harness**：模型与工具预算、持久化上下文摘要、调用预算结算、工具原文回读、工具入参校验、操作幂等、审批、outbox、检查点及持久化事件流。
 - **多模型**：OpenAI、Anthropic 和 OpenAI-compatible；密钥仅保留在后端。
 - **项目监控**：独立运行/任务界面、模型用量及检索/模型/工具时间线；可选 Langfuse OTLP 导出。
 
@@ -103,7 +103,7 @@ Python 包目录暂留兼容名称，产品名称与长期记忆 URI 使用 Si-a
 Si Memory 的检索和写入不要求运行 Agent 对话。现有 REST 提供检索、原文、证据、版本、候选确认、修正和忘记接口。
 外部应用可以在可信本机环境调用 API；现有单用户 API 尚不具备公网鉴权。
 
-下一轮以 MCP stdio 适配器连接外部 Agent：服务配置固定身份、项目和权限，读取返回相同的引用与证据，写入复用候选、审批、版本与遗忘规则。
+完成开发工具闭环后，以 MCP stdio 适配器连接外部 Agent：服务配置固定身份、项目和权限，读取返回相同的引用与证据，写入复用候选、审批、版本与遗忘规则。
 这项能力尚未验收，不能把旧版外部记忆客户端视为已经实现的 Si Memory 服务端。
 详见[上下文与独立记忆服务设计](docs/copilot-context-budget-design.md)。
 
@@ -135,6 +135,7 @@ Compose CI 同时执行 API 与浏览器验收。真实模型和 LLM judge 需�
 | [统一记忆方案](docs/si-unified-memory-design.md) | 检索门、增量蒸馏、冲突与遗忘 |
 | [运行时设计](docs/copilot-runtime.md) | Loop、工具审批、Provider 与恢复 |
 | [工作台验收](docs/copilot-workspace-release.md) | PostgreSQL 迁移、真实模型与 CI 证据 |
+| [长任务上下文验收](docs/copilot-context-continuity-release.md) | 分层上下文、语义摘要、预算结算、原文回读 |
 | [后续计划](docs/copilot-roadmap.md) | 独立记忆服务、基线、Eval Lab、Langfuse |
 | [全部文档](docs/README.md) | 开发记录与参考材料 |
 

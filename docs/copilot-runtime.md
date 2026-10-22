@@ -26,23 +26,23 @@ API 将用户消息与运行任务一起提交；Worker 驱动运行。每次模
 Embedding 和实际查询有各自 span，不能把门的耗时解释为整个检索耗时。
 
 单次上下文窗口由 `SI_{OPENAI,ANTHROPIC,COMPATIBLE}_CONTEXT_WINDOW` 控制；
-`max_tokens` 是整个 Run 多轮请求的累计保守预留预算，两者不是同一个限制。
-估算以 UTF-8 字节上界计数，不等于真实模型 token 或账单；每次输出预留 1024，并为协议保留余量。
-超过限制时只收缩 Provider 请求副本：按回合丢弃旧历史，省略较早工具正文及叙述，
-再缩短证据。当前问题、最近一组工具交换、系统指令及工具 schema 保留；原始记录不删除。
-最小请求仍不够时分别报告 context_budget 或 token_budget。
-上游明确拒绝长度且尚未输出文字时，可减小本次有效窗口重试一次；
-恢复不重放工具、放宽累计预算或延长截止时间，失败报告 provider_context_length。
-context_plan / context_recovery 记录预算及收缩计数，见[详细设计](copilot-context-budget-design.md)。
+`max_tokens` 是整个 Run 的累计预算，与窗口分别控制。输入仍按 UTF-8 字节上界估算，接口报告用量与未结算预留分开统计。
+调用前持久化唯一预留，成功后按有效 usage 结算一次；未知或中断调用保留额度。
+输出由 max_output_tokens 控制，API 默认 2,048、上限 4,096，工作台默认 4K 并支持切换。
 
-本机 hy3 的配置窗口是 32,768；当前网关 /v1/models 未报告实际窗口。
-本机已有两条 context_budget 失败来自运行时检查，不能归因为 hy3 或 workbuddy2api 的长度上限。
-提高配置只会放宽应用限制，不能扩展模型或网关的真实能力。
+系统规则保持固定；任务状态、派生摘要、最近完整交互和检索证据分别编译。
+跨回合加载有效摘要及其后的原始消息，不再固定只取 12 条历史；同一 Run 在完整工具批次之后、下次模型调用前检查容量。
+接近窗口时生成有消息定位及原句约束的增量摘要，原始消息与完整工具结果保存在数据库。
+摘要无法校验或必要内容无法装入窗口时明确停止，不静默丢弃历史。
+上游拒绝长度且尚未输出文字时，只能缩小窗口并尝试压缩后重试一次，工具不重放，截止时间不延长。
+
+本机 hy3 已配置 65,536 窗口；网关未报告实际最大窗口。摘要、预算、来源失效与回读边界见
+[长任务接续验收](copilot-context-continuity-release.md)。
 
 ## 项目 Agent 工具
 
-产品执行器注册以下 8 个工具，按当前 Run 允许集合发送 schema；旧 CLI 的通用工具不自动暴露给项目 Agent。
-前端“记忆建议”默认开启，发送五个只读工具与三个记忆写工具；关闭后只发送五个只读工具。
+产品执行器注册以下 9 个工具，按当前 Run 允许集合发送 schema；旧 CLI 的通用工具不自动暴露给项目 Agent。
+前端“记忆建议”默认开启，发送六个只读工具与三个记忆写工具；关闭后只发送六个只读工具。
 
 | 工具 | 用途与边界 |
 |---|---|
@@ -54,6 +54,7 @@ context_plan / context_recovery 记录预算及收缩计数，见[详细设计](
 | list_project_files | 分页查看关联目录或资料快照内的可读文件 |
 | read_project_file | 按相对路径及行号分段读取，返回续读位置并限制输出 |
 | search_project_files | 范围内的字面文本搜索，返回文件路径和行号 |
+| read_operation_result | 按操作 ID 分页回读完整结果，校验项目和来源有效性 |
 
 所有工具校验参数和项目范围；写操作经过审批/outbox，读取不提供 shell 或磁盘修改。
 初始检索由 Harness 自动调用 Memory Service，不计作模型选择 search_memory 的一次工具调用。
@@ -112,7 +113,8 @@ API 消息示例：
   "model": "your-model",
   "tools": ["search_memory", "read_memory", "propose_memory"],
   "max_iterations": 8,
-  "max_tokens": 16000,
+  "max_tokens": 64000,
+  "max_output_tokens": 4096,
   "max_tool_calls": 10,
   "timeout_seconds": 300
 }

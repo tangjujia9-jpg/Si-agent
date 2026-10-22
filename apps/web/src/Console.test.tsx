@@ -98,6 +98,27 @@ test("run trace resumes the durable cursor, deduplicates replay and closes after
   expect(source.close).toHaveBeenCalled();
 });
 
+test("compaction progress streams and working summaries load only on demand", async () => {
+  Stream.instances = [];
+  vi.stubGlobal("EventSource", Stream);
+  const fetch = vi.fn(async (path: string) => response(
+    path.endsWith("/context") ? {
+      canonical_message_count: 30, compaction_cursor: 20, sources_valid: true,
+      summary: { body: { constraints: [{ message_id: "m1", quote: "保持接口兼容" }] } },
+      working_state: { operations: [{ id: "op1", status: "unknown" }] },
+    } : path.includes("/events?") ? [] : { id: "r", status: "running", model: "hy3", trace_id: "t" },
+  ));
+  vi.stubGlobal("fetch", fetch);
+  render(<RunTrace runId="r" onFinish={() => {}} />);
+  await waitFor(() => expect(Stream.instances.length).toBe(1));
+  expect(fetch.mock.calls.some(([path]) => path.endsWith("/context"))).toBe(false);
+  act(() => Stream.instances[0].emit("compaction_start", {}, "1"));
+  expect(screen.getByText("正在整理上下文")).toBeTruthy();
+  fireEvent.click(screen.getByText("工作上下文与原文定位"));
+  await waitFor(() => expect(screen.getByText("保持接口兼容")).toBeTruthy());
+  expect(screen.getByText(/原始消息 30 条/)).toBeTruthy();
+});
+
 test("a pending operation can be rejected without reporting it as completed", async () => {
   vi.stubGlobal("EventSource", Stream);
   const fetcher = vi.fn(async (path: string, init?: RequestInit) =>
@@ -200,7 +221,7 @@ test("chat retries an ambiguous transport failure with the same idempotency key"
       );
     }),
   );
-  render(<Chat projectId="p" open={() => {}} changed={() => {}} />);
+  render(<Chat projectId="p" threadId="t" open={() => {}} changed={() => {}} />);
   fireEvent.change(screen.getByLabelText("消息内容"), {
     target: { value: "What storage?" },
   });
@@ -212,9 +233,12 @@ test("chat retries an ambiguous transport failure with the same idempotency key"
   );
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   await screen.findByText("Connection lost");
+  fireEvent.change(screen.getByLabelText("单次输出上限"), { target: { value: "2048" } });
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   await waitFor(() => expect(attempts).toBe(2));
   expect(bodies[0].idempotency_key).toBe(bodies[1].idempotency_key);
+  expect(bodies[0].max_output_tokens).toBe(4096);
+  expect(bodies[1].max_output_tokens).toBe(4096);
   expect(bodies[0]).not.toHaveProperty("kind");
 });
 

@@ -9,6 +9,9 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
+from waku.runtime.budget import totals
+from waku.runtime.compaction import fingerprint
+from waku.runtime.context_store import dependencies_valid, latest_summary, summary_state
 from waku.runtime.runner import (
     TERMINAL,
     append_event,
@@ -141,11 +144,12 @@ def run_routes(sessions, user_id):
             )
             if busy:
                 raise HTTPException(409, "Thread already has an active run")
+            summary = latest_summary(session, thread)
             history = session.scalars(
                 select(Message)
-                .where(Message.thread_id == thread_id, Message.role.in_(("user", "assistant")))
-                .order_by(Message.sequence.desc())
-                .limit(12)
+                .where(Message.thread_id == thread_id, Message.role.in_(("user", "assistant")),
+                       Message.sequence > (summary.covered_sequence if summary else 0))
+                .order_by(Message.sequence)
             ).all()
 
             def current_history(message):
@@ -160,7 +164,7 @@ def run_routes(sessions, user_id):
                     return False
 
             history = [m for m in history if current_history(m)]
-            messages = [{"role": m.role, "content": m.content} for m in reversed(history)]
+            messages = [{"role": m.role, "content": m.content} for m in history]
             messages.append({"role": "user", "content": payload.content})
             if not history and thread.title in {"New conversation", "新会话"}:
                 thread.title = payload.content[:48].replace("\n", " ")
@@ -179,15 +183,24 @@ def run_routes(sessions, user_id):
                 "tool_count": 0,
                 "charged_tokens": 0,
                 "pending_calls": [],
+                "compaction_cursor": 0,
+                "working_summary": summary_state(summary) if summary else {},
+                "working_state": {"goal": payload.content, "operations": []},
+                "max_output_tokens": payload.max_output_tokens,
+                "message_refs": [
+                    {"id": m.id, "sequence": m.sequence, "hash": fingerprint(m.content)}
+                    for m in history
+                ],
                 "source_nodes": [
-                    ref for message in history for ref in message.event_data.get("source_nodes", [])
+                    *(summary.dependencies.get("source_nodes", []) if summary else []),
+                    *[ref for message in history for ref in message.event_data.get("source_nodes", [])],
                 ],
                 "evidence_ids": list(
                     {
                         eid
                         for message in history
                         for eid in message.event_data.get("evidence_ids", [])
-                    }
+                    } | set(summary.dependencies.get("evidence_ids", []) if summary else [])
                 ),
             }
             run = Run(
@@ -195,7 +208,7 @@ def run_routes(sessions, user_id):
                 thread_id=thread_id,
                 model=payload.model,
                 trace_id=uuid4().hex,
-                context=state,
+                context=json.loads(json.dumps(state)),
             )
             session.add(run)
             session.flush()
@@ -208,6 +221,10 @@ def run_routes(sessions, user_id):
             )
             source = statement_source(
                 session, session.get(Project, thread.project_id), thread_id, message
+            )
+            message.event_data = {**message.event_data, "source_nodes": [{"id": source.id, "revision": source.revision}]}
+            state["message_refs"].append(
+                {"id": message.id, "sequence": message.sequence, "hash": fingerprint(message.content)}
             )
             state["statement_evidence_ids"] = list(
                 session.scalars(
@@ -239,6 +256,7 @@ def run_routes(sessions, user_id):
                 "iterations": run.context.get("iterations", 0),
                 "charged_tokens": run.context.get("charged_tokens", 0),
                 "usage_tokens": run.context.get("usage_tokens", 0),
+                "budget_usage": totals(run.context),
                 "error_code": run.context.get("error_code"),
                 "operations": [
                     {
@@ -250,6 +268,24 @@ def run_routes(sessions, user_id):
                     }
                     for op in ops
                 ],
+            }
+
+    @router.get("/api/runs/{run_id}/context")
+    def context_inspection(run_id: str):
+        with sessions() as session:
+            run = scoped(session, Run, run_id)
+            state = run.context
+            summary = state.get("working_summary", {})
+            valid = not state.get("redacted") and all(dependencies_valid(session, run.project_id, d)
+                for d in (state, summary.get("dependencies", {})))
+            return {
+                "summary": summary if valid else {},
+                "working_state": state.get("working_state", {}) if valid else {},
+                "budget_usage": totals(state),
+                "budget_ledger": state.get("budget_ledger", []),
+                "compaction_cursor": state.get("compaction_cursor", 0),
+                "canonical_message_count": len(state.get("messages", [])),
+                "sources_valid": valid,
             }
 
     @router.get("/api/runs/{run_id}/events")

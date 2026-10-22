@@ -4,6 +4,18 @@ import { useRunStream } from "./useRunStream";
 import { RunActivity } from "./RunActivity";
 import { label } from "./ui";
 
+type WorkingContext = {
+  canonical_message_count: number;
+  compaction_cursor: number;
+  sources_valid: boolean;
+  summary: { body?: Record<string, (string | { quote: string; message_id: string })[]>; dependencies?: unknown };
+  working_state: unknown;
+};
+const summaryLabels: Record<string, string> = {
+  goals: "任务目标", constraints: "用户原始约束", decisions: "决策与依据",
+  progress: "过程记录", open_questions: "未决问题", next_steps: "下一步",
+};
+
 export function duration(value: unknown) {
   if (value == null || !Number.isFinite(Number(value))) return "未记录";
   const ms = Number(value);
@@ -61,6 +73,8 @@ export function RunTrace({
     onFinish,
   );
   const [busy, setBusy] = useState(false);
+  const [working, setWorking] = useState<{ runId: string; data: WorkingContext } | null>(null);
+  const [contextError, setContextError] = useState("");
   const spans = traceLayout(events);
   const contextPlan = events.filter((e) => ["context_plan", "context_recovery"].includes(e.kind)).at(-1);
   async function cancel() {
@@ -72,6 +86,16 @@ export function RunTrace({
       setBusy(false);
     }
   }
+  async function inspect() {
+    setContextError("");
+    try {
+      const data = await api<WorkingContext>(`/api/runs/${runId}/context`);
+      setWorking({ runId, data });
+    } catch {
+      setContextError("暂时无法读取工作上下文。");
+    }
+  }
+  const context = working?.runId === runId ? working.data : null;
   return (
     <section className="trace-panel" aria-label="运行轨迹">
       <div className="section-line">
@@ -111,10 +135,28 @@ export function RunTrace({
                 输入估算 {String(contextPlan.data.estimated_input_tokens)} · 窗口 {String(contextPlan.data.context_window)}
                 {" · "}输出预留 {String(contextPlan.data.max_output_tokens)}
               </p>
-              <p>按 UTF-8 字节估算上界，实际模型 token 见用量；收缩不删除原始记录。</p>
+              <p>输入采用 UTF-8 保守上界；接口报告的 token 与未结算预留分别统计，摘要不删除原始记录。</p>
+              {run.budget_usage && <p>接口报告 {run.budget_usage.reported_tokens} · 未结算预留 {run.budget_usage.unsettled_tokens} · 当前计入预算 {run.budget_usage.charged_tokens}</p>}
               <pre>{JSON.stringify(contextPlan.data, null, 2)}</pre>
             </details>
           )}
+          <details className="raw-events" onToggle={(e) => { if (e.currentTarget.open) void inspect(); }}>
+            <summary>工作上下文与原文定位</summary>
+            {contextError && <p role="alert">{contextError}</p>}
+            {context && <>
+              <p>原始消息 {context.canonical_message_count} 条 · 已摘要覆盖 {context.compaction_cursor} 条</p>
+              {!context.sources_valid ? <p>关联来源已失效，当前摘要不可使用。</p> : <>
+                {Object.entries(context.summary.body || {}).map(([key, values]) => (
+                  <div key={key}><h4>{summaryLabels[key] || key}</h4><ul>{values.map((item, i) => (
+                    <li key={i}>{typeof item === "string" ? item : <>{item.quote} <small>（消息 {item.message_id}）</small></>}</li>
+                  ))}</ul></div>
+                ))}
+                {!context.summary.body && <p>尚未触发语义摘要，仍使用原始交互。</p>}
+                <details><summary>执行器任务状态</summary><pre>{JSON.stringify(context.working_state, null, 2)}</pre></details>
+                {context.summary.dependencies && <details><summary>摘要原文与证据定位</summary><pre>{JSON.stringify(context.summary.dependencies, null, 2)}</pre></details>}
+              </>}
+            </>}
+          </details>
           <RunActivity run={run} events={events} refresh={setRun} />
           {!terminal(run.status) && (
             <button

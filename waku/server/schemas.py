@@ -296,11 +296,13 @@ class RunInput(Input):
             "list_project_files",
             "read_project_file",
             "search_project_files",
+            "read_operation_result",
         ]
-    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=8)
+    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=9)
     max_iterations: int = Field(default=8, ge=1, le=20)
-    max_tokens: int = Field(default=16000, ge=1000, le=100000)
-    max_tool_calls: int = Field(default=10, ge=0, le=30)
+    max_tokens: int = Field(default=64000, ge=1000, le=256000)
+    max_output_tokens: int = Field(default=2048, ge=256, le=4096)
+    max_tool_calls: int = Field(default=10, ge=0, le=40)
     timeout_seconds: float = Field(default=120, gt=0, le=600)
 
 

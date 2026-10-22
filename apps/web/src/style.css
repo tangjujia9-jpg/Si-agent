@@ -676,6 +676,21 @@ blockquote button {
   color: #b1b6a6;
   margin: 11px 4px 0;
 }
+.output-limit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  white-space: nowrap;
+}
+.output-limit select {
+  width: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
 .run-activity {
   font-size: 12px;
   margin-bottom: 16px;

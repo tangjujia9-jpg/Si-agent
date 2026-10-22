@@ -56,6 +56,9 @@ export function Chat({
   const [modelIndex, setModelIndex] = useState(0);
   const [text, setText] = useState("");
   const [writes, setWrites] = useState(true);
+  const [outputTokens, setOutputTokens] = useState(() =>
+    localStorage.getItem("si-output-tokens") === "2048" ? 2048 : 4096,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [older, setOlder] = useState(false);
@@ -71,6 +74,7 @@ export function Chat({
     provider: string;
     model: string;
     tools: string[];
+    max_output_tokens: number;
     thread: Thread;
   } | null>(null);
   useEffect(
@@ -179,6 +183,7 @@ export function Chat({
           idempotency_key: crypto.randomUUID(),
           provider: model.ref.provider,
           model: model.ref.model,
+          max_output_tokens: outputTokens,
           thread: created || { id: tid, title: "" },
           tools: model.capabilities.tool_calling
             ? [
@@ -187,6 +192,7 @@ export function Chat({
                 "list_project_files",
                 "read_project_file",
                 "search_project_files",
+                "read_operation_result",
                 ...(writes
                   ? ["propose_memory", "change_memory", "forget_memory"]
                   : []),
@@ -434,6 +440,17 @@ export function Chat({
         </form>
         <div className="composer-hint">
           <span>Enter 发送 · Shift + Enter 换行</span>
+          <label className="output-limit" title="单次模型输出上限，与上下文窗口和累计任务预算分别计算">
+            单次输出
+            <select aria-label="单次输出上限" value={outputTokens} onChange={(e) => {
+              const value = Number(e.target.value);
+              setOutputTokens(value);
+              localStorage.setItem("si-output-tokens", String(value));
+            }}>
+              <option value={2048}>2K</option>
+              <option value={4096}>4K</option>
+            </select>
+          </label>
           <span>项目文件只读 · 记忆修改需批准</span>
         </div>
       </div>
