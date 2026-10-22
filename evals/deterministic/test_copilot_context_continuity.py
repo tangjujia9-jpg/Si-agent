@@ -45,6 +45,7 @@ def test_budget_releases_only_confirmed_usage_and_settles_once():
     assert state["charged_tokens"] == 7000
     with pytest.raises(ValueError, match="token_budget"):
         reserve(state, 6000, "llm")
+    assert totals({"charged_tokens": 2000, "usage_tokens": 100})["unsettled_tokens"] == 2000
 
 
 def test_parallel_tool_batch_cannot_be_split():

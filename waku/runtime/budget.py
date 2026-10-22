@@ -40,10 +40,12 @@ def resume_reservations(state):
 
 def totals(state):
     ledger = state.get("budget_ledger", [])
+    legacy = max(0, state.get("charged_tokens", 0) - sum(e["charged"] for e in ledger))
     return {
         "charged_tokens": state.get("charged_tokens", 0),
         "reported_tokens": state.get("usage_tokens", 0),
-        "unsettled_tokens": sum(e["charged"] for e in ledger if e["status"] != "settled"),
+        "unsettled_tokens": legacy + sum(e["charged"] for e in ledger if e["status"] != "settled"),
+        "legacy_unclassified_tokens": legacy,
         "attempts": len(ledger),
         "basis": "provider_report_with_conservative_unsettled_reservations",
     }
