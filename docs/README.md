@@ -40,6 +40,7 @@ into four groups.
 | [copilot-roadmap.md](copilot-roadmap.md) | 后续开发计划与 Langfuse tracing 验收要求 |
 | [copilot-runtime.md](copilot-runtime.md) | 第五周运行时、工具恢复、Provider、Jev 与 Langfuse 设计 |
 | [copilot-context-budget-design.md](copilot-context-budget-design.md) | 请求收缩、窗口与运行预算、上游长度恢复及独立 MCP 记忆边界 |
+| [si-context-and-tools-design.zh-CN.md](si-context-and-tools-design.zh-CN.md) | 长任务改造方案：64K 探测、语义压缩、预算结算、开发工具与执行环境 |
 | [copilot-context-release.md](copilot-context-release.md) | 中文验收：检索门来源、上下文保护、工具清单与项目入口 |
 | [copilot-workspace-design.md](copilot-workspace-design.md) | 项目/会话工作台、目录边界、流式事件与数据库迁移设计 |
 | [copilot-workspace-release.md](copilot-workspace-release.md) | 中文工作台验收：产品导航、文件导入、工具历史修复、独立监控与 PostgreSQL |
