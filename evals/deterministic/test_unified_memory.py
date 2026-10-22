@@ -171,7 +171,14 @@ def test_react_reuses_initial_gate_and_evidence_across_iterations(backend):
     runtime.memory.search = counted
     run_job(sessions, runtime)
     assert len(calls) == 1 and len(model.requests) == 2
-    assert "Use pgvector" in model.requests[1].system
+    for request in model.requests:
+        assert "Use pgvector" not in request.system
+        assert any(
+            message["role"] == "user"
+            and message.get("content", "").startswith("REFERENCE_CONTEXT:")
+            and "Use pgvector" in message["content"]
+            for message in request.messages
+        )
     events = client.get(f"/api/runs/{rid}/events").json()
     assert sum(e["kind"] == "span" and e["data"]["name"] == "retrieval_gate" for e in events) == 1
     with sessions() as session:

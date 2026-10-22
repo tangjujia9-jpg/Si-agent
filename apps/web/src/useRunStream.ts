@@ -23,6 +23,11 @@ const kinds = [
   "retrieval_decision",
   "context_plan",
   "context_recovery",
+  "compaction_start",
+  "compaction_end",
+  "compaction_failed",
+  "summary_call",
+  "usage_settled",
 ];
 export function useRunStream(runId: string, onFinish: () => void) {
   const [run, setRun] = useState<Run | null>(null);

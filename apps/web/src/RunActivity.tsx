@@ -33,12 +33,17 @@ export function RunActivity({
       "run_error",
       "retrieval_decision",
       "context_recovery",
+      "compaction_start",
+      "compaction_end",
+      "compaction_failed",
     ].includes(e.kind),
   );
   const last = meaningful.at(-1);
   const status =
     run.status === "waiting_approval"
       ? "需要你确认操作"
+      : last?.kind === "compaction_start"
+        ? "正在整理上下文"
       : last?.kind === "tool_start"
         ? `正在${label(String(last.data.tool || "tool"))}`
         : last?.kind === "memory_search"

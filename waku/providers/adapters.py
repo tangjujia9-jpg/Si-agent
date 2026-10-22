@@ -206,7 +206,19 @@ class DemoProvider:
     def complete(self, model, request):
         import re
 
-        cites = re.findall(r"\[si://[^\]]+\]", request.system.partition("\nEvidence:\n")[2])
+        from waku.runtime.compaction import SUMMARY_SYSTEM
+
+        if request.system == SUMMARY_SYSTEM:
+            raise ValueError("compaction_unavailable")
+        evidence = [request.system.split("\nEvidence:\n", 1)[1]] if "\nEvidence:\n" in request.system else []
+        for message in request.messages:
+            content = message.get("content", "")
+            if isinstance(content, str) and content.startswith("REFERENCE_CONTEXT:"):
+                try:
+                    evidence.append(json.loads(content.split("\n", 1)[1]).get("evidence", ""))
+                except (ValueError, IndexError):
+                    pass
+        cites = re.findall(r"(?m)^(\[si://[^\]]+\]) \(l[012](?:, revision: \d+)?, evidence:", "\n".join(evidence))
         answer = "Offline demo. Retrieved project evidence: " + " ".join(dict.fromkeys(cites))
         if not cites:
             answer = "Offline demo. No project evidence was retrieved. Configure a provider for generated answers."

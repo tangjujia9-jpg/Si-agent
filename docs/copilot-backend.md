@@ -74,7 +74,9 @@ ssh -N -L 127.0.0.1:18790:127.0.0.1:18790 aliyun-tang
 只启动前端无法运行智能体；停止 Worker 会使任务停留在队列中。
 该本机配置使用 hy3 和 Qwen 1024 维 Embedding，Jev 保持禁用。模型接入的历史记录见[7A 报告](copilot-week7a-release.md)。
 2026-10-22 已将本机 `SI_COMPATIBLE_CONTEXT_WINDOW` 从 32,768 调整为 65,536；
-实测范围和后续压缩方案见[长任务上下文设计](si-context-and-tools-design.zh-CN.md)。
+实测范围与后续工具方案见[长任务上下文设计](si-context-and-tools-design.zh-CN.md)。
+
+本轮新增迁移 0009，持久化工作摘要和来源依赖；升级前先备份数据库。上下文结构和预算结算见[接续验收](copilot-context-continuity-release.md)。
 
 本机已设置 `SI_WORKSPACE_ROOTS=C:/code`，文件浏览器只允许在此范围内关联项目。
 Windows 多个根目录使用分号分隔；Docker 默认不挂载宿主机目录，可以用浏览器导入快照。
@@ -132,6 +134,7 @@ SQLite 测试通过 `Base.metadata.create_all` 创建独立临时数据库；正
 | `POST /api/threads/{id}/memory/distill` | 将该会话当前增量立即排队蒸馏，返回 job |
 | `POST /api/threads/{id}/messages` | 幂等排队 Agent 运行，返回 202 |
 | `GET /api/runs/{id}`、`GET /api/runs/{id}/events` | 查询运行状态、预算、工具和持久化事件 |
+| `GET /api/runs/{id}/context` | 按需查看工作摘要、执行器状态、原文依赖与预算账本 |
 | `GET /api/runs/{id}/events/stream` | 按序号重放 SSE，暂停或结束时返回快照 |
 | `POST /api/operations/{id}/approval`、`POST /api/runs/{id}/cancel` | 批准/拒绝写工具与取消运行 |
 | `GET /api/models` | 列举后端配置的模型与能力，不返回密钥 |

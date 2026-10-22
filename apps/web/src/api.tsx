@@ -77,6 +77,7 @@ export type Run = {
   iterations?: number;
   charged_tokens?: number;
   usage_tokens?: number;
+  budget_usage?: { reported_tokens: number; unsettled_tokens: number; charged_tokens: number; attempts: number };
   operations?: Operation[];
 };
 export type RunEvent = {

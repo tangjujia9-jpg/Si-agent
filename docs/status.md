@@ -24,9 +24,9 @@ approvals, candidate review, memory inspection and Run Trace are implemented.
 The Chinese project/thread workspace now supports durable model text streaming,
 inline tool progress/approval, folder-linked read-only tools and snapshot imports.
 Sources and memory open in drawers; `/monitor` provides an independent project
-trace/worker view. Provider request copies now compact older turns/tool bodies with
-budget events and one bounded recovery. [The next proposal](si-context-and-tools-design.zh-CN.md)
-covers compaction, budget settlement and development tools before Memory MCP; these additions are not implemented.
+trace/worker view. Working context now uses checkpointed semantic summaries, exact
+constraint quotes, durable result paging and per-attempt usage settlement. Migration 0009
+stores source-dependent summaries; [acceptance](copilot-context-continuity-release.md) records limits. Development tools remain pending.
 The local API/worker now use PostgreSQL 16 / pgvector 0.8.2;
 the original Copilot SQLite database remains backed up. Migration 0008 adds folder
 association. See [copilot-workspace-release.md](copilot-workspace-release.md).

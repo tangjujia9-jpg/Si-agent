@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from waku.storage.models import (
     ContextIndex,
     ContextNode,
+    ContextSummary,
     ForgetTombstone,
     Job,
     MemoryCandidate,
@@ -177,6 +178,15 @@ def forget_node(session, node, reason):
             session.scalars(select(MemoryEvidence).where(MemoryEvidence.node_id == current.id))
         )
         evidence_ids = {e.id for e in evidence}
+        forgotten_messages = set(current.source_event_ids) if current.kind == "session" else set()
+        for summary in session.scalars(select(ContextSummary).where(
+            ContextSummary.project_id == current.project_id
+        )):
+            dependencies = summary.dependencies
+            if (evidence_ids.intersection(dependencies.get("evidence_ids", []))
+                    or current.id in {r["id"] for r in dependencies.get("source_nodes", [])}
+                    or forgotten_messages.intersection(r["id"] for r in dependencies.get("message_refs", []))):
+                summary.status, summary.body = "redacted", {}
         origin_runs = set()
         if current.kind == "session":
             for mid in current.source_event_ids:
@@ -195,6 +205,10 @@ def forget_node(session, node, reason):
                 run.id not in origin_runs
                 and not evidence_ids.intersection(run.context.get("evidence_ids", []))
                 and current.id not in {ref["id"] for ref in run.context.get("source_nodes", [])}
+                and not forgotten_messages.intersection(ref["id"] for ref in [
+                    *run.context.get("message_refs", []),
+                    *run.context.get("working_summary", {}).get("dependencies", {}).get("message_refs", []),
+                ])
             ):
                 continue
             run.context = {
@@ -208,6 +222,9 @@ def forget_node(session, node, reason):
                 "retrieval_cache": None,
                 "statement_evidence_ids": [],
                 "redacted": True,
+                "working_summary": {},
+                "working_state": {},
+                "message_refs": [],
             }
             if run.status not in {"succeeded", "failed", "cancelled", "unknown"}:
                 run.status = "cancelled"

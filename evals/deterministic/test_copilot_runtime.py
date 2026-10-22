@@ -27,7 +27,7 @@ from waku.workers.runner import claim, process, run_once
 backend = backend_fixture
 
 
-def test_loop_compacts_request_copy_and_retains_full_durable_tool_results(backend):
+def test_loop_summarizes_request_copy_and_retains_full_durable_tool_results(backend):
     tools = Executor([ToolSpec("read_memory", "Read", Arguments,
                               lambda *args: {"uri": "si://source", "content": "evidence " * 450})])
     turns = [ModelResponse(tool_calls=[{"id": str(i), "name": "read_memory", "arguments": {}}])
@@ -38,9 +38,11 @@ def test_loop_compacts_request_copy_and_retains_full_durable_tool_results(backen
     )
     model.capabilities = lambda model: ModelCapabilities(tool_calling=True, context_window=11000)
     run_job(sessions, runtime)
-    assert client.get(f"/api/runs/{rid}").json()["status"] == "succeeded"
+    snapshot = client.get(f"/api/runs/{rid}").json()
+    assert snapshot["status"] == "succeeded", snapshot
     assert len(model.requests) == 5
-    assert any('"context_elided": true' in str(r.messages) for r in model.requests)
+    assert any('"summary": {"constraints":' in str(r.messages) for r in model.requests)
+    assert model.summary_requests
     with sessions() as session:
         canonical = session.get(Run, rid).context["messages"]
         outcomes = [json.loads(m["content"]) for m in canonical if m["role"] == "tool"]
@@ -70,9 +72,11 @@ def test_upstream_length_recovery_reduces_request_once_without_exposing_error(ba
         run = session.get(Run, rid)
         state = dict(run.context)
         state["messages"] = [
-            {"role": "user", "content": "past " * 4000},
+            {"role": "user", "content": "past " * 2000},
             {"role": "assistant", "content": "past reply"}, *state["messages"],
         ]
+        # Synthetic in-run entries have no Message rows; do not misalign the current row's locator.
+        state["message_refs"] = []
         run.context = state
     run_job(sessions, runtime)
     snapshot = client.get(f"/api/runs/{rid}").json()
@@ -116,12 +120,24 @@ def test_length_error_after_published_text_does_not_retry(backend):
 
 class Scripted:
     def __init__(self, responses):
-        self.responses, self.requests = list(responses), []
+        self.responses, self.requests, self.summary_requests = list(responses), [], []
 
     def capabilities(self, model):
         return ModelCapabilities(tool_calling=True, context_window=32768)
 
     def complete(self, model, request):
+        from waku.runtime.compaction import SUMMARY_SYSTEM
+
+        if request.system == SUMMARY_SYSTEM:
+            self.summary_requests.append(request)
+            payload = json.loads(request.messages[0]["content"])
+            constraints = payload["previous_summary"].get("constraints", []) + [
+                {"message_id": m["message_id"], "quote": m["content"][:120]}
+                for m in payload["transcript"] if m["role"] == "user"
+            ]
+            return ModelResponse(json.dumps({"goals": ["Continue the project task"],
+                "constraints": constraints, "decisions": [], "progress": ["Sources inspected"],
+                "open_questions": [], "next_steps": ["Continue from the latest result"]}))
         self.requests.append(request)
         item = self.responses.pop(0)
         if isinstance(item, Exception):
@@ -165,8 +181,9 @@ def test_project_evidence_reaches_model_and_run_is_idempotent(backend):
     submit(client, pid)
     assert run_once(sessions)
     run_job(sessions, runtime)
-    assert "Use pgvector" in model.requests[0].system
-    assert f"si://users/default/projects/{pid}" in model.requests[0].system
+    assert "Use pgvector" in str(model.requests[0].messages)
+    assert f"si://users/default/projects/{pid}" in str(model.requests[0].messages)
+    assert "Use pgvector" not in model.requests[0].system
     snapshot = client.get(f"/api/runs/{rid}").json()
     assert snapshot["status"] == "succeeded"
     assert snapshot["reply"] == "Use evidence"
@@ -455,7 +472,7 @@ def test_forget_during_model_call_cancels_and_redacts_history(backend):
     )
 
     def forget_then_reply(request):
-        assert "Use pgvector" in request.system
+        assert "Use pgvector" in str(request.messages)
         response = client.post(f"/api/memory/{node['id']}/forget", json={})
         assert response.status_code == 200
         return ModelResponse("Use pgvector")
