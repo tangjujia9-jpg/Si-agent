@@ -27,6 +27,7 @@ Sources and memory open in drawers; `/monitor` provides an independent project
 trace/worker view. Working context now uses checkpointed semantic summaries, exact
 constraint quotes, durable result paging and per-attempt usage settlement. Migration 0009
 stores source-dependent summaries; [acceptance](copilot-context-continuity-release.md) records limits. [Development tools](copilot-development-release.zh-CN.md) add approved patches, Git, plans and snapshot command jobs with logs/cancellation.
+A real hy3/PostgreSQL fixture completed patch/test/diff/report; this used explicit trusted-local execution. Local Docker Desktop is unavailable; container isolation is verified separately in Linux CI.
 The local API/worker now use PostgreSQL 16 / pgvector 0.8.2;
 the original Copilot SQLite database remains backed up. Migration 0008 adds folder
 association. See [copilot-workspace-release.md](copilot-workspace-release.md).
