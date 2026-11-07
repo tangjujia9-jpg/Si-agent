@@ -4,7 +4,6 @@
 — a status file that grows is a changelog, and git already is one.
 
 Read this before opening a PR: it records known problems and fixes in flight.
-
 **Last updated:** 2026-11-07
 
 ---
