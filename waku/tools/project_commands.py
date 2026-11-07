@@ -8,6 +8,10 @@ from sqlalchemy import select
 
 from waku.runtime.workspace import manifest_hash, root_for, safe_relative, scan
 from waku.storage.models import CommandTask, Job, Run, ToolOperation
+from waku.tools.executor import PreviewError
+
+EXECUTABLES = {"python", "python3", "pytest", "ruff", "node", "npm", "npx", "make", "go", "cargo"}
+TRUSTED_EXECUTABLES = {"python", "python3", "node"}
 
 
 def command_configuration():
@@ -32,13 +36,13 @@ def command_preview(args, root):
             if part.is_symlink() or getattr(part, "is_junction", lambda: False)():
                 raise ValueError("linked cwd")
     if (any("\x00" in a or "\n" in a or "\r" in a for a in args["argv"])
-            or args["argv"][0] not in {"python", "python3", "pytest", "ruff", "node", "npm", "npx", "make", "go", "cargo"}):
-        raise ValueError("unsupported executable")
-    if config["backend"] == "trusted-local" and args["argv"][0] not in {"python", "python3", "node"}:
-        raise ValueError("trusted local supports python and node executables only")
+            or args["argv"][0] not in EXECUTABLES):
+        raise PreviewError("unsupported_executable", "Use an argv list starting with python, python3, pytest, ruff, node, npm, npx, make, go or cargo. Use file/Git tools for inspection; shell commands are unavailable.")
+    if config["backend"] == "trusted-local" and args["argv"][0] not in TRUSTED_EXECUTABLES:
+        raise PreviewError("unsupported_executable", "Trusted-local accepts python, python3 and node only. For Python tests use [\"python\", \"-m\", \"unittest\", \"-v\"] or [\"python\", \"-m\", \"pytest\"].")
     files, skipped, truncated = scan(root)
     if truncated:
-        raise ValueError("snapshot limit exceeded; use a smaller project root")
+        raise PreviewError("snapshot_limit", "Snapshot exceeds 5000 files or 20 MB; ask the user to link a smaller project root")
     preview = {"kind": "command", "root": str(root), **config, **args,
                "files": files, "snapshot_hash": manifest_hash(files), "skipped_files": skipped,
                "network": "none" if config["backend"] == "docker" else "host",
@@ -82,7 +86,7 @@ def command_view(task, offset=0, limit=3000):
 
 def command_tools(sessions, Arguments, ToolSpec):
     class CommandArgs(Arguments):
-        argv: list[str] = Field(min_length=1, max_length=40)
+        argv: list[str] = Field(min_length=1, max_length=40, description="Executable and separate arguments, e.g. [\"python\", \"-m\", \"unittest\", \"-v\"]. No shell, ls, pwd, cd or git. Docker allows python/python3/pytest/ruff/node/npm/npx/make/go/cargo; trusted-local allows python/python3/node only. Executables and dependencies must already exist in the configured environment.")
         cwd: str = Field(default=".", min_length=1, max_length=200)
         timeout_seconds: int = Field(default=60, ge=1, le=300)
 
@@ -119,7 +123,7 @@ def command_tools(sessions, Arguments, ToolSpec):
             return {"command_id": task.id, "status": task.status, "cancel_requested": True}
 
     return [
-        ToolSpec("run_project_command", "Run argv in an isolated, offline project snapshot after human approval. The agent waits for completion. No changes are copied back.",
+        ToolSpec("run_project_command", "Run tests or builds in a project snapshot after human approval. Docker is offline and isolated; trusted-local has host access. The agent waits for completion. No changes are copied back. Use file/Git tools for inspection.",
                  CommandArgs, lambda args, ctx, oid: enqueue_command(sessions, ctx, oid), writes=True,
                  prepare=lambda args, ctx: command_preview(args, root_for(sessions, ctx, "execute_commands"))),
         ToolSpec("get_command_result", "Read command state, exit code and paginated logs", ResultArgs, read),

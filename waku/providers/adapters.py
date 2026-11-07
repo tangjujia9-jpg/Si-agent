@@ -92,7 +92,7 @@ class OpenAIProvider:
 
     def stream(self, model, request):
         yield StreamEvent("start", {"model": model.model})
-        pending, usage, stop = {}, Usage(), "stop"
+        pending, usage, stop = {}, Usage(), None
         with self.client.chat.completions.create(
             **self._arguments(model, request),
             stream=True,
@@ -114,6 +114,8 @@ class OpenAIProvider:
                             item["name"] += call.function.name or ""
                             item["arguments"] += call.function.arguments or ""
                     stop = choice.finish_reason or stop
+        if stop is None:
+            raise ValueError("incomplete_model_response")
         for item in pending.values():
             item["arguments"] = json.loads(item["arguments"])
             if not isinstance(item["arguments"], dict):

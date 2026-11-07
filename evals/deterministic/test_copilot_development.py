@@ -76,12 +76,13 @@ def approve(client, rid):
     return op
 
 
-def test_fix_validate_test_and_diff_is_a_real_loop(backend, tmp_path, monkeypatch):
-    source = "def valid(value):\n    return value >= 0\n"
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_fix_validate_test_and_diff_is_a_real_loop(backend, tmp_path, monkeypatch, newline):
+    source = "def valid(value):\n    return value >= 0\n".replace("\n", newline)
     corrected = source.replace(">= 0", "> 0")
     regression = "import unittest\nfrom app import valid\nclass TestValidation(unittest.TestCase):\n    def test_zero(self):\n        self.assertFalse(valid(0))\n    def test_positive(self):\n        self.assertTrue(valid(1))\n"
     args = {"files": [
-        {"path": "app.py", "expected_sha256": digest(source.encode()), "old_text": ">= 0", "new_text": "> 0"},
+        {"path": "app.py", "expected_sha256": digest(source.encode()), "old_text": "def valid(value):\n    return value >= 0", "new_text": "def valid(value):\n    return value > 0"},
         {"path": "test_app.py", "expected_sha256": None, "old_text": "", "new_text": regression},
     ]}
     client, sessions, root, _, rid, runtime, model = development(backend, tmp_path, monkeypatch, [
@@ -102,7 +103,7 @@ def test_fix_validate_test_and_diff_is_a_real_loop(backend, tmp_path, monkeypatc
     assert "after" not in patch["preview"]["files"][0]
     work(sessions, runtime, kind="tool_outbox")
     work(sessions, runtime, kind="run")
-    assert (root / "app.py").read_text() == corrected
+    assert (root / "app.py").read_bytes() == corrected.encode()
     assert (root / "notes.md").read_text() == "Existing user edit must survive"
     command = approve(client, rid)
     work(sessions, runtime, kind="tool_outbox")
@@ -124,6 +125,74 @@ def test_fix_validate_test_and_diff_is_a_real_loop(backend, tmp_path, monkeypatc
     assert client.post(f"/api/operations/{command['id']}/approval", json={"approved": True, "preview_hash": command["preview"]["hash"]}).status_code == 200
     with sessions() as session:
         assert len(list(session.scalars(select(CommandTask)))) == 1
+
+
+def test_preview_failure_explains_recovery_without_bypassing_approval(backend, tmp_path, monkeypatch):
+    source = b"value = 1\r\n"
+    client, sessions, root, _, rid, runtime, model = development(backend, tmp_path, monkeypatch, [
+        tool("apply_project_patch", {"files": [{"path": "app.py", "expected_sha256": digest(source), "old_text": "missing", "new_text": "value = 2"}]}, "bad-patch"),
+        tool("run_project_command", {"argv": ["ls", "-la"]}, "bad-command"),
+        tool("apply_project_patch", {"files": [{"path": "app.py", "expected_sha256": digest(source), "old_text": "value = 1\n", "new_text": "value = 2\n"}]}, "fixed-patch"),
+    ])
+    (root / "app.py").write_bytes(source)
+    work(sessions, runtime, kind="run")
+    run = client.get(f"/api/runs/{rid}").json()
+    errors = {op["result"].get("error_code"): op["result"] for op in run["operations"] if op["status"] == "failed"}
+    assert errors["patch_text_mismatch"]["message"].startswith("old_text must match exactly once")
+    assert "shell commands are unavailable" in errors["unsupported_executable"]["message"]
+    assert str(root) not in str(errors)
+    assert any("patch_text_mismatch" in str(request.messages) for request in model.requests)
+    assert not run["commands"]
+    assert (root / "app.py").read_bytes() == source
+    approve(client, rid)
+    work(sessions, runtime, kind="tool_outbox")
+    assert (root / "app.py").read_bytes() == b"value = 2\r\n"
+
+
+def test_patch_preserves_untouched_mixed_newlines_and_requires_unique_text(tmp_path):
+    from waku.tools.executor import PreviewError
+    from waku.tools.project_patch import preview_patch
+
+    source = b"first\nvalue = 1\r\nlast\n"
+    (tmp_path / "app.py").write_bytes(source)
+    edit = {"path": "app.py", "expected_sha256": digest(source), "old_text": "value = 1\n", "new_text": "value = 2\n"}
+    preview = preview_patch({"files": [edit]}, tmp_path)
+    assert preview["files"][0]["after"].encode() == b"first\nvalue = 2\r\nlast\n"
+    assert (tmp_path / "app.py").read_bytes() == source
+    with pytest.raises(PreviewError) as failure:
+        preview_patch({"files": [{**edit, "old_text": "\n"}]}, tmp_path)
+    assert failure.value.code == "patch_text_mismatch"
+
+
+def test_git_inspection_respects_newlines_without_running_content_filters(tmp_path, monkeypatch):
+    from waku.tools.project_git import git_read
+
+    config = tmp_path / "global.config"
+    config.write_text("[core]\n\tautocrlf = true\n", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "app.py").write_bytes(b"value = 1\r\n")
+    (root / ".gitattributes").write_bytes(b"*.py filter=probe\r\n")
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "commit", "-qm", "Initial"], check=True)
+    sentinel = root / "filter-ran.txt"
+    code = 'from pathlib import Path; Path("filter-ran.txt").write_text("ran")'
+    import shlex
+    import sys
+
+    command = shlex.quote(sys.executable.replace("\\", "/")) + " -c " + shlex.quote(code)
+    subprocess.run(["git", "-C", str(root), "config", "filter.probe.clean", command], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "filter.probe.required", "true"], check=True)
+    # Change bytes to force Git to inspect content instead of trusting its stat cache.
+    (root / "app.py").write_bytes(b"value = 2\r\n")
+    diff, _ = git_read(root, ["diff", "--no-ext-diff", "--no-textconv", "--", "app.py"])
+    assert "+value = 2" in diff and "-value = 1" in diff
+    assert not sentinel.exists()
+    (root / "app.py").write_bytes(b"value = 1\r\n")
+    status, _ = git_read(root, ["status", "--porcelain=v1", "--untracked-files=all"])
+    assert status == ""
 
 
 def test_failed_build_can_be_fixed_and_verified_in_a_new_snapshot(backend, tmp_path, monkeypatch):

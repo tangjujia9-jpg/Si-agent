@@ -133,6 +133,7 @@ export function Chat({
     let active = true;
     setCapabilities(null);
     setMode("analysis");
+    setSavingPermissions(false);
     void api<Capabilities>(`/api/projects/${projectId}/capabilities`).then((value) => {
       if (active && Array.isArray(value?.tools)) setCapabilities(value);
     }).catch(() => {});
@@ -140,13 +141,14 @@ export function Chat({
   }, [projectId]);
   async function setPermissions(permission: "write_files" | "execute_commands", enabled: boolean) {
     if (!capabilities) return;
+    const generation = scope.current;
     setSavingPermissions(true);
     const next = { ...capabilities.permissions, [permission]: enabled };
     try {
       await api(`/api/projects/${projectId}/permissions`, { method: "PUT", body: JSON.stringify(next) });
-      setCapabilities({ ...capabilities, permissions: next });
-    } catch (e) { setError((e as Error).message); }
-    finally { setSavingPermissions(false); }
+      if (generation === scope.current) setCapabilities({ ...capabilities, permissions: next });
+    } catch (e) { if (generation === scope.current) setError((e as Error).message); }
+    finally { if (generation === scope.current) setSavingPermissions(false); }
   }
   const refresh = useCallback(async () => {
     if (!threadId) return;

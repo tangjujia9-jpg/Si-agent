@@ -41,8 +41,8 @@ Embedding 和实际查询有各自 span，不能把门的耗时解释为整个�
 
 ## 项目 Agent 工具
 
-产品执行器注册以下 9 个工具，按当前 Run 允许集合发送 schema；旧 CLI 的通用工具不自动暴露给项目 Agent。
-前端“记忆建议”默认开启，发送六个只读工具与三个记忆写工具；关闭后只发送六个只读工具。
+产品执行器注册 17 个工具，按项目权限、分析/开发模式及当前 Run 的请求集合发送 schema；旧 CLI 的通用工具不自动暴露给项目 Agent。
+前端“记忆建议”控制三个记忆写工具。分析模式包含原有读取与记忆工具，以及三个 Git 读取工具；开发模式额外提供计划、补丁和命令工具。
 
 | 工具 | 用途与边界 |
 |---|---|
@@ -55,8 +55,16 @@ Embedding 和实际查询有各自 span，不能把门的耗时解释为整个�
 | read_project_file | 按相对路径及行号分段读取，返回续读位置并限制输出 |
 | search_project_files | 范围内的字面文本搜索，返回文件路径和行号 |
 | read_operation_result | 按操作 ID 分页回读完整结果，校验项目和来源有效性 |
+| git_status / git_diff / git_log | 读取工作区状态、差异与提交；禁用 hooks、外部 diff、textconv 与内容过滤程序 |
+| update_plan | 维护计划与进度，不能代替实际工具结果 |
+| apply_project_patch | 预览后审批修改或新建文本文件；检查完整哈希、唯一原文匹配，兼容 LF/CRLF |
+| run_project_command | 审批后创建持久化命令任务，在项目快照执行测试或构建 |
+| get_command_result / stop_project_command | 查看命令状态及分页日志，请求取消当前运行的命令 |
 
-所有工具校验参数和项目范围；写操作经过审批/outbox，读取不提供 shell 或磁盘修改。
+所有工具校验参数和项目范围；写操作经过审批/outbox。文件与命令还分别需要项目授权及服务端开发开关。
+命令执行时模型暂停，命令结束后由 Worker 续接，退出码与快照身份进入工作状态；完整日志按需回读。
+开发模式的人工审批等待单独累计；命令耗时仍占活动时限。默认容器无网络，可信本机模式必须显式配置。
+配置、恢复 journal、取消和环境边界见[开发工具验收](copilot-development-release.zh-CN.md)。
 初始检索由 Harness 自动调用 Memory Service，不计作模型选择 search_memory 的一次工具调用。
 
 ## Jev 决策边界

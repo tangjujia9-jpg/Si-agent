@@ -27,6 +27,40 @@ from waku.workers.runner import claim, process, run_once
 backend = backend_fixture
 
 
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("recovers", [False, True])
+def test_empty_model_reply_retries_once_without_replaying_tools(backend, streaming, recovers):
+    from waku.providers.contracts import StreamEvent, Usage
+
+    effects = []
+    tools = Executor([ToolSpec("read_memory", "Read", Arguments, lambda *a: effects.append("read") or {"content": "read once"})])
+    usage = Usage(10, 1, 11)
+    responses = [ModelResponse(tool_calls=[{"id": "read", "name": "read_memory", "arguments": {}}], usage=usage),
+                 ModelResponse("", usage=usage), ModelResponse("verified" if recovers else "", usage=usage)]
+    client, sessions, _, tid, rid, runtime, model, _ = setup_run(backend, responses, executor=tools, tools=["read_memory"])
+    if streaming:
+        model.capabilities = lambda _: ModelCapabilities(streaming=True, tool_calling=True, context_window=32768)
+        def stream(ref, request):
+            response = model.complete(ref, request)
+            for call in response.tool_calls:
+                yield StreamEvent("tool_call", call)
+            if response.text:
+                yield StreamEvent("text_delta", {"text": response.text})
+            yield StreamEvent("usage", {"input_tokens": 10, "output_tokens": 1, "total_tokens": 11})
+            yield StreamEvent("done", {"stop_reason": "tool_calls" if response.tool_calls else "stop"})
+        model.stream = stream
+    run_job(sessions, runtime)
+    snapshot = client.get(f"/api/runs/{rid}").json()
+    assert snapshot["status"] == ("succeeded" if recovers else "failed")
+    assert snapshot["reply"] == ("verified" if recovers else "")
+    if not recovers:
+        assert snapshot["error_code"] == "incomplete_model_response"
+    assert effects == ["read"] and len(model.requests) == 3
+    assert snapshot["budget_usage"]["reported_tokens"] == 33
+    messages = client.get(f"/api/threads/{tid}/messages").json()
+    assert [m["content"] for m in messages if m["role"] == "assistant"] == (["verified"] if recovers else [])
+
+
 def test_loop_summarizes_request_copy_and_retains_full_durable_tool_results(backend):
     tools = Executor([ToolSpec("read_memory", "Read", Arguments,
                               lambda *args: {"uri": "si://source", "content": "evidence " * 450})])

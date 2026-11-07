@@ -3,6 +3,7 @@
 import difflib
 import json
 import os
+import re
 import tempfile
 
 from pydantic import Field
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from waku.domain.contracts import ToolResult
 from waku.runtime.workspace import digest, root_for, target
 from waku.storage.models import Project, Run, ToolOperation
+from waku.tools.executor import PreviewError
 
 
 def preview_patch(args, root):
@@ -22,15 +24,23 @@ def preview_patch(args, root):
         before = path.read_bytes() if path.exists() else None
         if before is None:
             if edit["expected_sha256"] is not None or edit["old_text"]:
-                raise ValueError("new file precondition")
+                raise PreviewError("new_file_precondition", "New files require expected_sha256=null and empty old_text; read an existing file before editing it")
             after = edit["new_text"].encode()
         else:
             if edit["expected_sha256"] != digest(before) or not edit["old_text"]:
-                raise ValueError("file changed; read it again")
+                raise PreviewError("file_precondition", "Read the current file and use its complete sha256 with non-empty old_text")
             text = before.decode("utf-8")
-            if text.count(edit["old_text"]) != 1:
-                raise ValueError("old text must match exactly once")
-            after = text.replace(edit["old_text"], edit["new_text"], 1).encode()
+            # Model JSON usually uses LF even when the source uses Windows CRLF.
+            # Match logical newlines, preserve untouched bytes and the file's newline style.
+            needle = edit["old_text"].replace("\r\n", "\n")
+            pattern = re.compile(r"\r?\n".join(re.escape(part) for part in needle.split("\n")))
+            matches = list(pattern.finditer(text))
+            if len(matches) != 1:
+                raise PreviewError("patch_text_mismatch", "old_text must match exactly once, without displayed line-number prefixes; read the file and use a unique exact fragment")
+            match = matches[0]
+            newline = "\r\n" if "\r\n" in text else "\n"
+            replacement = edit["new_text"].replace("\r\n", "\n").replace("\n", newline)
+            after = (text[:match.start()] + replacement + text[match.end():]).encode()
         if (len(after) > 200000 or b"\x00" in after or before == after):
             raise ValueError("invalid edit")
         patch = "".join(difflib.unified_diff(
@@ -113,8 +123,8 @@ def apply_patch(sessions, ctx, oid):
 def patch_tool(sessions, Arguments, ToolSpec):
     class FileEdit(Arguments):
         path: str = Field(min_length=1, max_length=240)
-        expected_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
-        old_text: str = Field(default="", max_length=40000)
+        expected_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$", description="Complete sha256 from read_project_file, or null only for a new file")
+        old_text: str = Field(default="", max_length=40000, description="Unique exact source fragment without displayed line-number prefixes; empty only for new files. LF and CRLF are equivalent for matching.")
         new_text: str = Field(max_length=40000)
 
     class PatchArgs(Arguments):

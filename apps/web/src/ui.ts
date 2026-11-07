@@ -62,6 +62,7 @@ const labels: Record<string, string> = {
   memory_search: "记忆检索",
   llm_start: "模型调用开始",
   llm_end: "模型调用结束",
+  llm_retry: "重新请求模型",
   tool_start: "工具开始",
   tool_end: "工具结束",
   approval_required: "请求人工审批",

@@ -13,6 +13,14 @@ class Arguments(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
+class PreviewError(ValueError):
+    """A deliberately public recovery hint, without raw filesystem exceptions."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 class SearchArgs(Arguments):
     query: str = Field(min_length=1, max_length=4000)
     top_k: int = Field(default=5, ge=1, le=20)

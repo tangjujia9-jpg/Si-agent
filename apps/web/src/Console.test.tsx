@@ -222,6 +222,32 @@ test("chat reloads the chosen conversation and follows a source citation", async
   expect(open).toHaveBeenCalledWith(node.uri);
 });
 
+test("a late permission update cannot change the newly selected project", async () => {
+  let finish: (value: ReturnType<typeof response>) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === "/api/projects/p1/permissions" && init?.method === "PUT") {
+      return new Promise<ReturnType<typeof response>>((resolve) => { finish = resolve; });
+    }
+    return response(path.endsWith("/capabilities") ? {
+      development_enabled: true, linked_workspace: true,
+      permissions: { write_files: false, execute_commands: false },
+      execution: { backend: "docker" }, tools: [],
+    } : []);
+  }));
+  const props = { threadId: "t", open: () => {}, changed: () => {} };
+  const view = render(<Chat {...props} projectId="p1" />);
+  await waitFor(() => expect((screen.getByRole("option", { name: "开发" }) as HTMLOptionElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText("工作模式"), { target: { value: "development" } });
+  fireEvent.click(screen.getByLabelText("允许申请文件修改"));
+  view.rerender(<Chat {...props} projectId="p2" />);
+  await waitFor(() => expect((screen.getByRole("option", { name: "开发" }) as HTMLOptionElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText("工作模式"), { target: { value: "development" } });
+  await act(async () => { finish(response({ permissions: { write_files: true } })); });
+  const permission = screen.getByLabelText("允许申请文件修改") as HTMLInputElement;
+  expect(permission.checked).toBe(false);
+  expect(permission.disabled).toBe(false);
+});
+
 test("chat retries an ambiguous transport failure with the same idempotency key", async () => {
   let attempts = 0;
   const bodies: Record<string, unknown>[] = [];

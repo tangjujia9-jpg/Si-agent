@@ -1,12 +1,46 @@
 """Bounded Git inspection with external diff, textconv and hooks disabled."""
 
 import os
+import re
 import shutil
 import subprocess
 
 from pydantic import Field
 
 from waku.runtime.workspace import root_for, safe_relative
+
+
+def inspection_flags(executable, root):
+    """Keep newline policy and disable configured content filters during reads."""
+    import tempfile
+
+    values, filters = {}, set()
+    config_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")
+                  or k in {"GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM"}}
+    with tempfile.TemporaryFile() as output:
+        result = subprocess.run([executable, "config", "--get-regexp", r"^(core\.(autocrlf|eol)|filter\..*\.(clean|smudge|process|required))$"],
+                                cwd=root, env=config_env, stdout=output, stderr=subprocess.DEVNULL, timeout=5, shell=False, check=False,
+                                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        if result.returncode not in {0, 1}:
+            raise ValueError("git inspection configuration unavailable")
+        output.seek(0)
+        data = output.read(16001)
+    if len(data) > 16000:
+        raise ValueError("git inspection configuration too large")
+    for line in data.decode("utf-8", errors="replace").splitlines():
+        key, _, value = line.partition(" ")
+        allowed = {"core.autocrlf": {"true", "false", "input"}, "core.eol": {"lf", "crlf", "native"}}
+        if key in allowed and value.lower() in allowed[key]:
+            values[key] = value.lower()
+        if key.startswith("filter."):
+            if not re.fullmatch(r"filter\.[a-zA-Z0-9_.-]+\.(clean|smudge|process|required)", key):
+                raise ValueError("unsupported git filter configuration")
+            filters.add(key.rsplit(".", 1)[0])
+    flags = [item for key, value in values.items() for item in ("-c", key + "=" + value)]
+    for driver in sorted(filters):
+        for setting, value in (("clean", ""), ("smudge", ""), ("process", ""), ("required", "false")):
+            flags.extend(["-c", driver + "." + setting + "=" + value])
+    return flags
 
 
 def git_read(root, arguments):
@@ -21,7 +55,8 @@ def git_read(root, arguments):
         raise ValueError("git unavailable")
     command = [executable, "--no-pager", "--literal-pathspecs", "--git-dir=" + str(metadata),
                "--work-tree=" + str(root), "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull,
-               "-c", "core.attributesFile=" + os.devnull, "-c", "submodule.recurse=false", *arguments]
+               "-c", "core.attributesFile=" + os.devnull, "-c", "submodule.recurse=false",
+               *inspection_flags(executable, root), *arguments]
     # Stream to a file so an unexpectedly large diff cannot allocate unbounded pipe output.
     import tempfile
 
