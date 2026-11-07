@@ -1772,3 +1772,20 @@ blockquote button {
 .context-tree-row > button:last-child {
   font-size: 12px;
 }
+.development-permissions { max-width: 800px; margin: 12px auto 0; color: var(--muted); font-size: 12px; }
+.development-permissions summary { cursor: pointer; display: flex; gap: 12px; }
+.development-permissions summary span { margin-left: auto; }
+.development-permissions > div { display: flex; gap: 24px; padding: 12px 0 2px; flex-wrap: wrap; }
+.development-permissions label { display: flex; gap: 6px; align-items: center; }
+.task-plan { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.task-plan > small { font-weight: 600; }
+.task-plan ol { list-style: none; padding: 0; margin: 10px 0 0; }
+.task-plan li { display: flex; gap: 10px; align-items: center; padding: 5px 0; }
+.task-plan li small { margin-left: auto; color: var(--muted); }
+.task-plan .completed > span { color: var(--muted); }
+.patch-preview pre, .command-preview pre, .command-log { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; font-size: 12px; padding: 14px; border-radius: 7px; background: var(--soft); }
+.patch-preview summary { padding: 8px 0; cursor: pointer; font-family: monospace; }
+.command-card { border-left: 2px solid var(--line); margin: 14px 0; padding: 10px 16px; font-size: 12px; }
+.command-card > div:first-child { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.command-card code { overflow-wrap: anywhere; }
+.command-preview code { display: block; padding-top: 8px; font-size: 11px; }

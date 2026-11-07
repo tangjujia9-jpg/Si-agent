@@ -5,7 +5,7 @@
 
 Read this before opening a PR: it records known problems and fixes in flight.
 
-**Last updated:** 2026-10-22
+**Last updated:** 2026-11-07
 
 ---
 
@@ -26,7 +26,7 @@ inline tool progress/approval, folder-linked read-only tools and snapshot import
 Sources and memory open in drawers; `/monitor` provides an independent project
 trace/worker view. Working context now uses checkpointed semantic summaries, exact
 constraint quotes, durable result paging and per-attempt usage settlement. Migration 0009
-stores source-dependent summaries; [acceptance](copilot-context-continuity-release.md) records limits. Development tools remain pending.
+stores source-dependent summaries; [acceptance](copilot-context-continuity-release.md) records limits. [Development tools](copilot-development-release.zh-CN.md) add approved patches, Git, plans and snapshot command jobs with logs/cancellation.
 The local API/worker now use PostgreSQL 16 / pgvector 0.8.2;
 the original Copilot SQLite database remains backed up. Migration 0008 adds folder
 association. See [copilot-workspace-release.md](copilot-workspace-release.md).

@@ -49,7 +49,7 @@ class DocumentInput(Input):
             or any(ord(char) < 32 for char in value)
         ):
             raise ValueError("path must be a relative POSIX path without traversal or URI syntax")
-        if path.suffix.lower() not in {
+        if path.name not in {".gitignore", ".dockerignore", "Dockerfile", "Makefile", "LICENSE"} and path.suffix.lower() not in {
             ".md",
             ".txt",
             ".py",
@@ -286,19 +286,17 @@ class RunInput(Input):
     idempotency_key: str = Field(min_length=1, max_length=100)
     provider: Literal["demo", "openai", "anthropic", "openai-compatible"] = "demo"
     model: str = Field(default="evidence-demo", min_length=1, max_length=160)
-    tools: list[
-        Literal[
-            "search_memory",
-            "read_memory",
-            "propose_memory",
-            "change_memory",
-            "forget_memory",
-            "list_project_files",
-            "read_project_file",
-            "search_project_files",
-            "read_operation_result",
-        ]
-    ] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=9)
+    mode: Literal["analysis", "development"] = "analysis"
+    tools: list[str] = Field(default_factory=lambda: ["search_memory", "read_memory"], max_length=20)
+
+    @field_validator("tools")
+    @classmethod
+    def registered_tools(cls, names):
+        from waku.tools.catalog import TOOLS
+
+        if any(name not in TOOLS for name in names):
+            raise ValueError("unknown tool")
+        return names
     max_iterations: int = Field(default=8, ge=1, le=20)
     max_tokens: int = Field(default=64000, ge=1000, le=256000)
     max_output_tokens: int = Field(default=2048, ge=256, le=4096)
@@ -308,6 +306,12 @@ class RunInput(Input):
 
 class ApprovalInput(Input):
     approved: bool = Field(strict=True)
+    preview_hash: str | None = Field(default=None, max_length=64)
+
+
+class ProjectPermissions(Input):
+    write_files: bool = Field(default=False, strict=True)
+    execute_commands: bool = Field(default=False, strict=True)
 
 
 class RunOutput(Output):

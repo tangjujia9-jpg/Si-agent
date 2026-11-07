@@ -11,12 +11,42 @@ import { Chat } from "./Chat";
 import { RunTrace } from "./RunTrace";
 import { MemoryInspector } from "./MemoryInspector";
 import { MemoryReview } from "./MemoryReview";
+import { RunActivity } from "./RunActivity";
 import type { ProjectNode } from "./api";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.unstubAllGlobals();
+});
+
+test("patch approval sends the exact preview hash and displays a diff", async () => {
+  const run = { id: "r", status: "waiting_approval", model: "demo", trace_id: "t", operations: [{
+    id: "patch", tool: "apply_project_patch", status: "pending", arguments: {}, result: {},
+    preview: { kind: "patch", hash: "version-1", files: [{ path: "app.py", diff: "-return False\n+return True" }] },
+  }] };
+  const fetcher = vi.fn(async (_path: string, init?: RequestInit) => response(init?.method ? {} : run));
+  vi.stubGlobal("fetch", fetcher);
+  render(<RunActivity run={run} events={[]} refresh={() => {}} />);
+  expect(screen.getByText("app.py")).toBeTruthy();
+  expect(screen.getByText(/return True/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "批准操作" }));
+  await waitFor(() => expect(fetcher.mock.calls.some(([path, init]) =>
+    path === "/api/operations/patch/approval" && JSON.parse(String(init?.body)).preview_hash === "version-1",
+  )).toBe(true));
+});
+
+test("command progress exposes snapshot-bound logs and cancellation", async () => {
+  const command = { command_id: "c", status: "running", backend: "docker", argv: ["python", "-m", "unittest"], snapshot_hash: "a".repeat(64), output: "", next_offset: null };
+  const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => response({ ...command, output: "test validation ... ok" }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<RunActivity run={{ id: "r", status: "waiting_operation", model: "demo", trace_id: "t", commands: [command], plan: { steps: [{ title: "运行回归测试", status: "in_progress" }], explanation: "" } }} events={[]} refresh={() => {}} />);
+  expect(screen.getByText("正在执行项目命令")).toBeTruthy();
+  expect(screen.getByLabelText("任务计划")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "查看日志" }));
+  await screen.findByText("test validation ... ok");
+  fireEvent.click(screen.getByRole("button", { name: "停止命令" }));
+  await waitFor(() => expect(fetcher.mock.calls.some((call) => String(call[0]).endsWith("/commands/c/cancel"))).toBe(true));
 });
 const response = (value: unknown, ok = true) => ({
   ok,

@@ -21,6 +21,7 @@ import {
   type Run,
   type Model,
   type Thread,
+  type Capabilities,
 } from "./api";
 import { useRunStream } from "./useRunStream";
 import { RunActivity } from "./RunActivity";
@@ -56,6 +57,9 @@ export function Chat({
   const [modelIndex, setModelIndex] = useState(0);
   const [text, setText] = useState("");
   const [writes, setWrites] = useState(true);
+  const [mode, setMode] = useState("analysis");
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const [savingPermissions, setSavingPermissions] = useState(false);
   const [outputTokens, setOutputTokens] = useState(() =>
     localStorage.getItem("si-output-tokens") === "2048" ? 2048 : 4096,
   );
@@ -75,6 +79,11 @@ export function Chat({
     model: string;
     tools: string[];
     max_output_tokens: number;
+    mode: string;
+    max_tokens: number;
+    max_iterations: number;
+    max_tool_calls: number;
+    timeout_seconds: number;
     thread: Thread;
   } | null>(null);
   useEffect(
@@ -120,6 +129,25 @@ export function Chat({
       active = false;
     };
   }, [projectId, chosen === undefined]);
+  useEffect(() => {
+    let active = true;
+    setCapabilities(null);
+    setMode("analysis");
+    void api<Capabilities>(`/api/projects/${projectId}/capabilities`).then((value) => {
+      if (active && Array.isArray(value?.tools)) setCapabilities(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [projectId]);
+  async function setPermissions(permission: "write_files" | "execute_commands", enabled: boolean) {
+    if (!capabilities) return;
+    setSavingPermissions(true);
+    const next = { ...capabilities.permissions, [permission]: enabled };
+    try {
+      await api(`/api/projects/${projectId}/permissions`, { method: "PUT", body: JSON.stringify(next) });
+      setCapabilities({ ...capabilities, permissions: next });
+    } catch (e) { setError((e as Error).message); }
+    finally { setSavingPermissions(false); }
+  }
   const refresh = useCallback(async () => {
     if (!threadId) return;
     const generation = scope.current;
@@ -184,9 +212,18 @@ export function Chat({
           provider: model.ref.provider,
           model: model.ref.model,
           max_output_tokens: outputTokens,
+          mode,
+          max_tokens: mode === "development" ? 256000 : 64000,
+          max_iterations: mode === "development" ? 20 : 8,
+          max_tool_calls: mode === "development" ? 40 : 10,
+          timeout_seconds: mode === "development" ? 600 : 180,
           thread: created || { id: tid, title: "" },
           tools: model.capabilities.tool_calling
-            ? [
+            ? capabilities ? capabilities.tools.filter((tool) =>
+                (tool.mode === "analysis" || mode === "development") &&
+                (!['memory'].includes(tool.effect) || writes) &&
+                (!['write_files', 'execute_commands'].includes(tool.effect) || capabilities.permissions[tool.effect as "write_files" | "execute_commands"])
+              ).map((tool) => tool.name) : [
                 "search_memory",
                 "read_memory",
                 "list_project_files",
@@ -202,8 +239,6 @@ export function Chat({
       const { thread: target, ...payload } = pending.current;
       const row = await post<Run>(`/api/threads/${target.id}/messages`, {
         ...payload,
-        max_tokens: 64000,
-        timeout_seconds: 180,
       });
       if (generation !== scope.current) return;
       setText("");
@@ -383,6 +418,10 @@ export function Chat({
             }}
           />
           <div className="composer-bottom">
+            <select aria-label="工作模式" value={mode} disabled={running || busy} onChange={(e) => setMode(e.target.value)}>
+              <option value="analysis">分析</option>
+              <option value="development" disabled={!capabilities?.development_enabled || !capabilities?.linked_workspace}>开发</option>
+            </select>
             <button
               type="button"
               className="icon-button"
@@ -451,8 +490,16 @@ export function Chat({
               <option value={4096}>4K</option>
             </select>
           </label>
-          <span>项目文件只读 · 记忆修改需批准</span>
+          <span>{mode === "development" ? "修改与执行逐项确认" : "项目文件只读 · 记忆修改需批准"}</span>
         </div>
+        {mode === "development" && capabilities && <details className="development-permissions">
+          <summary>项目开发权限 <span>{capabilities.execution.backend === "docker" ? "隔离容器 · 无网络" : "可信本机 · 宿主权限"}</span></summary>
+          <div>
+            <label><input type="checkbox" checked={!!capabilities.permissions.write_files} disabled={savingPermissions || running} onChange={(e) => void setPermissions("write_files", e.target.checked)} />允许申请文件修改</label>
+            <label><input type="checkbox" checked={!!capabilities.permissions.execute_commands} disabled={savingPermissions || running} onChange={(e) => void setPermissions("execute_commands", e.target.checked)} />允许申请运行程序</label>
+          </div>
+          <p>{capabilities.execution.backend === "docker" ? "程序在项目快照内运行，结果不会自动回写。需要预先准备执行镜像。" : "可信本机模式可访问宿主文件与网络，仅用于你信任的项目；不会继承模型密钥环境变量。"}</p>
+        </details>}
       </div>
     </section>
   );

@@ -37,6 +37,7 @@ class ToolSpec:
     execute: Callable
     writes: bool = False
     idempotent: bool = True
+    prepare: Callable | None = None
 
     def schema(self):
         return {
@@ -94,7 +95,11 @@ class Executor:
 def project_executor(memory, sessions):
     from waku.tools.memory_actions import action_tools
     from waku.tools.operation_result import result_tool
+    from waku.tools.project_commands import command_tools
     from waku.tools.project_files import file_tools
+    from waku.tools.project_git import git_tools
+    from waku.tools.project_patch import patch_tool
+    from waku.tools.project_plan import plan_tool
 
     def search(args, context, _operation_id):
         from dataclasses import asdict
@@ -174,6 +179,9 @@ def project_executor(memory, sessions):
         + action_tools(memory, sessions, Arguments, ToolSpec)
         + file_tools(sessions, Arguments, ToolSpec)
         + [result_tool(sessions, Arguments, ToolSpec)]
+        + git_tools(sessions, Arguments, ToolSpec)
+        + command_tools(sessions, Arguments, ToolSpec)
+        + [patch_tool(sessions, Arguments, ToolSpec), plan_tool(Arguments, ToolSpec)]
     )
 
     return executor

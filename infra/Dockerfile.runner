@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+RUN pip install --no-cache-dir pytest==8.4.2 ruff==0.14.3
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 HOME=/tmp
+WORKDIR /workspace
+USER 65534:65534
+CMD ["python", "--version"]

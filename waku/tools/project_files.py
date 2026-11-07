@@ -1,6 +1,7 @@
 """Read-only project tools; disk access requires an explicitly linked root."""
 
 import json
+from fnmatch import fnmatchcase
 
 from sqlalchemy import select
 
@@ -11,8 +12,10 @@ def file_tools(sessions, Arguments, ToolSpec):
     from pydantic import Field
 
     class ListArgs(Arguments):
-        offset: int = Field(default=0, ge=0, le=500)
+        offset: int = Field(default=0, ge=0, le=5000)
         limit: int = Field(default=100, ge=1, le=100)
+        glob: str = Field(default="*", max_length=200)
+        directory: str = Field(default="", max_length=200)
 
     class ReadArgs(Arguments):
         path: str = Field(min_length=1, max_length=240)
@@ -21,6 +24,10 @@ def file_tools(sessions, Arguments, ToolSpec):
 
     class SearchArgs(Arguments):
         query: str = Field(min_length=1, max_length=200)
+        glob: str = Field(default="*", max_length=200)
+        directory: str = Field(default="", max_length=200)
+        offset: int = Field(default=0, ge=0, le=100000)
+        limit: int = Field(default=30, ge=1, le=100)
 
     def scope(context):
         with sessions() as session:
@@ -31,11 +38,12 @@ def file_tools(sessions, Arguments, ToolSpec):
 
     def files(context):
         from waku.memory.postgres import root_uri
-        from waku.server.workspace import folder, manifest
+        from waku.runtime.workspace import folder, scan
 
         root = scope(context)
         if root:
-            return manifest(folder(root))["files"]
+            rows, skipped, truncated = scan(folder(root))
+            return rows, {"scan_truncated": truncated, "skipped_files": skipped, "scope": "supported non-sensitive text files"}
         prefix = root_uri(context.user_id, context.project_id) + "/resources/"
         with sessions() as session:
             rows = session.scalars(
@@ -46,25 +54,25 @@ def file_tools(sessions, Arguments, ToolSpec):
                     ContextNode.status == "active",
                 )
                 .order_by(ContextNode.uri)
-                .limit(500)
+                .limit(5001)
             ).all()
             from urllib.parse import unquote
 
             return [
                 {"path": unquote(n.uri[len(prefix) :]), "size": len(n.content.encode())}
-                for n in rows
+                for n in rows[:5000]
                 if n.uri.startswith(prefix)
-            ]
+            ], {"scan_truncated": len(rows) > 5000, "skipped_files": 0, "scope": "imported resources"}
 
     def content(path, context):
         from waku.memory.postgres import root_uri
+        from waku.runtime.workspace import folder, target
         from waku.server.schemas import DocumentInput
-        from waku.server.workspace import folder, resolve_file
 
         DocumentInput.safe_path(path)
         root = scope(context)
         if root:
-            return resolve_file(folder(root), path).read_text(encoding="utf-8-sig")
+            return target(folder(root), path).read_bytes().decode("utf-8")
         from urllib.parse import quote
 
         uri = root_uri(context.user_id, context.project_id) + "/resources/" + quote(path, safe="/")
@@ -81,7 +89,10 @@ def file_tools(sessions, Arguments, ToolSpec):
             return node.content
 
     def read(args, ctx, _op):
-        lines = content(args["path"], ctx).splitlines()
+        from waku.runtime.workspace import digest
+
+        text = content(args["path"], ctx)
+        lines = text.splitlines()
         first, count = args["start_line"] - 1, args["max_lines"]
         selected = []
         line_truncated = False
@@ -106,12 +117,19 @@ def file_tools(sessions, Arguments, ToolSpec):
             "truncated": next_line <= len(lines) or line_truncated,
             "next_line": next_line if next_line <= len(lines) else None,
             "line_truncated": line_truncated,
+            "sha256": digest(text.encode()),
         }
+
+    def filtered(args, rows):
+        directory = args.get("directory", "").strip("/")
+        return [r for r in rows if (not directory or r["path"].startswith(directory + "/"))
+                and fnmatchcase(r["path"], args.get("glob", "*"))]
 
     def search(args, ctx, _op):
         matches = []
-        scanned = 0
-        for item in files(ctx):
+        scanned, found = 0, 0
+        rows, coverage = files(ctx)
+        for item in filtered(args, rows):
             scanned += 1
             try:
                 text = content(item["path"], ctx)
@@ -119,17 +137,23 @@ def file_tools(sessions, Arguments, ToolSpec):
                 continue
             for i, line in enumerate(text.splitlines(), 1):
                 if args["query"].lower() in line.lower():
+                    found += 1
+                    if found <= args["offset"]:
+                        continue
                     match = {"path": item["path"], "line": i, "text": line[:180]}
                     if (
                         len(json.dumps([*matches, match], ensure_ascii=False).encode()) > 4400
-                        or len(matches) == 30
+                        or len(matches) == args["limit"]
                     ):
-                        return {"matches": matches, "truncated": True, "scanned_files": scanned}
+                        return {"matches": matches, "truncated": True, "scanned_files": scanned,
+                                "next_offset": args["offset"] + len(matches), **coverage}
                     matches.append(match)
-        return {"matches": matches, "truncated": False, "scanned_files": scanned}
+        return {"matches": matches, "truncated": coverage["scan_truncated"], "scanned_files": scanned,
+                "next_offset": None, **coverage}
 
     def listing(args, ctx, _op):
-        rows = files(ctx)
+        rows, coverage = files(ctx)
+        rows = filtered(args, rows)
         selected = []
         for item in rows[args["offset"] : args["offset"] + args["limit"]]:
             if len(json.dumps([*selected, item], ensure_ascii=False).encode()) > 4400:
@@ -141,6 +165,7 @@ def file_tools(sessions, Arguments, ToolSpec):
             "has_more": end < len(rows),
             "next_offset": end if end < len(rows) else None,
             "listed_total": len(rows),
+            **coverage,
         }
 
     return [
