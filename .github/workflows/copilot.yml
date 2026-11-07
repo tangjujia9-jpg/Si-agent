@@ -28,6 +28,12 @@ jobs:
       - run: pip install uv==0.9.26
       - run: uv sync --frozen --extra dev --extra copilot --extra copilot-jev --extra copilot-observability --extra copilot-workflow --extra hosted
       - run: uv run --no-sync ruff check waku evals scripts hosted
+      - name: Build offline command execution image
+        run: docker build -f infra/Dockerfile.runner -t si-agent-runner:local .
+      - name: Verify isolated command execution on SQLite and PostgreSQL
+        run: uv run --no-sync pytest -q evals/deterministic/test_copilot_development.py -k docker_snapshot
+        env:
+          SI_TEST_COMMAND_DOCKER: 'true'
       - run: uv run --no-sync pytest -q evals/deterministic
       - uses: actions/setup-node@v4
         with:

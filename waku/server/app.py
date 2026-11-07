@@ -38,6 +38,7 @@ from waku.server.schemas import (
 )
 from waku.storage.database import build_engine, session_factory
 from waku.storage.models import (
+    CommandTask,
     ContextIndex,
     ContextNode,
     Job,
@@ -121,7 +122,7 @@ def create_app(database_url: str | None = None, *, engine=None, embedder=None) -
         session.execute(select(Project.id).limit(1))
         session.execute(select(ContextIndex.id).limit(1))
         session.execute(select(MemoryVersion.id).limit(1))
-        for model in (RunEvent, ToolOperation, OutboxEvent):
+        for model in (RunEvent, ToolOperation, OutboxEvent, CommandTask):
             session.execute(select(model.id).limit(1))
         return {"status": "ready"}
 

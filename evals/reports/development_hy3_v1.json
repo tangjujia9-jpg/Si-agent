@@ -1,0 +1,110 @@
+{
+  "date": "2026-11-07",
+  "task": "synthetic-validation-fix-v1",
+  "assessment": "single-task acceptance; not a general model success-rate benchmark",
+  "provider": "openai-compatible",
+  "model": "hy3",
+  "database": "PostgreSQL",
+  "isolated_schema_verified": true,
+  "workspace": "disposable Git fixture",
+  "command_backend": "trusted-local",
+  "approval": "test harness approved only previews bound to its disposable workspace",
+  "embedding_calls": 0,
+  "jev_enabled": false,
+  "run_status": "succeeded",
+  "actions_completed": true,
+  "final_report_received": true,
+  "iterations": 9,
+  "elapsed_seconds": 42.484,
+  "budget_usage": {
+    "charged_tokens": 41002,
+    "reported_tokens": 41002,
+    "unsettled_tokens": 0,
+    "legacy_unclassified_tokens": 0,
+    "attempts": 9,
+    "basis": "provider_report_with_conservative_unsettled_reservations"
+  },
+  "operations": [
+    {
+      "tool": "list_project_files",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "read_project_file",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "update_plan",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "apply_project_patch",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "apply_project_patch",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "update_plan",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "run_project_command",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "get_command_result",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "git_diff",
+      "status": "succeeded",
+      "error_code": null
+    },
+    {
+      "tool": "update_plan",
+      "status": "succeeded",
+      "error_code": null
+    }
+  ],
+  "command": {
+    "argv": [
+      "python",
+      "-m",
+      "unittest",
+      "-v"
+    ],
+    "status": "succeeded",
+    "exit_code": 0,
+    "snapshot_hash": "1455c81bcc499f23ae701cacb9b6409cfc9e633e9077e3006c3de24ea6a751c0",
+    "output": "test_negative_is_invalid (test_app.ValidTest.test_negative_is_invalid) ... ok\r\ntest_positive_is_valid (test_app.ValidTest.test_positive_is_valid) ... ok\r\ntest_zero_is_invalid (test_app.ValidTest.test_zero_is_invalid) ... ok\r\n\r\n----------------------------------------------------------------------\r\nRan 3 tests in 0.000s\r\n\r\nOK\r\n",
+    "duration_seconds": 0.75,
+    "workspace_changes_copied_back": false
+  },
+  "final_source": "def valid(value):\n    return value > 0\n",
+  "test_files": [
+    "test_app.py"
+  ],
+  "notes_preserved": true,
+  "reply": "已实际完成修复并验证。\n\n**修复内容**\n- `app.py`：将 `return value >= 0` 改为 `return value > 0`，使 0 和负数无效、正数有效（`app.py:2`）。\n- 未改动 `notes.md`。\n\n**回归测试**\n- 新增 `test_app.py`，覆盖三组：正数有效（1、42、0.5）、零无效（0、0.0）、负数无效（-1、-3.14）。\n\n**测试结果（真实运行，`python -m unittest -v`，退出码 0）**\n```\ntest_negative_is_invalid ... ok\ntest_positive_is_valid ... ok\ntest_zero_is_invalid ... ok\nRan 3 tests in 0.000s — OK\n```\n\n**git_diff**\n```\n def valid(value):\n-    return value >= 0\n+    return value > 0\n```\n\n符合要求：仅正数有效，0 与负数无效，测试全部通过。",
+  "findings_fixed": [
+    "LF/CRLF patch matching",
+    "Git newline configuration and disabled content filters",
+    "empty/missing-terminal model replies must not succeed"
+  ],
+  "limits": [
+    "Local Docker Desktop was unavailable; real container isolation is tested separately in Linux CI",
+    "This live model task used explicit trusted-local execution",
+    "Provider-reported usage is not a verified bill",
+    "One synthetic task does not measure complex project reliability"
+  ]
+}

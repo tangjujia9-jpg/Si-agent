@@ -24,8 +24,9 @@ from waku.runtime.runner import (
     enqueue_run,
     validate_sources,
 )
-from waku.server.schemas import ApprovalInput, RunInput, RunOutput
+from waku.server.schemas import ApprovalInput, ProjectPermissions, RunInput, RunOutput
 from waku.storage.models import (
+    CommandTask,
     Job,
     MemoryEvidence,
     Message,
@@ -35,11 +36,46 @@ from waku.storage.models import (
     Thread,
     ToolOperation,
 )
+from waku.tools.catalog import allowed_tools
+from waku.tools.project_commands import command_view
 from waku.workers.distillation import append_message, enqueue_distillation, statement_source
 
 
 def run_routes(sessions, user_id):
     router = APIRouter()
+
+    @router.get("/api/projects/{project_id}/capabilities")
+    def capabilities(project_id: str):
+        import os
+
+        from waku.tools.catalog import TOOLS
+        from waku.tools.project_commands import command_configuration
+
+        with sessions() as session:
+            project = session.get(Project, project_id)
+            if not project or project.user_id != user_id:
+                raise HTTPException(404, "Project not found")
+            return {"linked_workspace": bool(project.root_path), "permissions": project.permissions,
+                    "development_enabled": os.environ.get("SI_DEVELOPMENT_ENABLED") == "true",
+                    "execution": command_configuration(),
+                    "tools": [{"name": name, "label": values[0], "effect": values[1], "mode": values[2]} for name, values in TOOLS.items()]}
+
+    @router.put("/api/projects/{project_id}/permissions")
+    def permissions(project_id: str, payload: ProjectPermissions):
+        import os
+
+        from waku.server.workspace import folder
+
+        with sessions.begin() as session:
+            project = session.scalar(select(Project).where(Project.id == project_id).with_for_update())
+            if not project or project.user_id != user_id:
+                raise HTTPException(404, "Project not found")
+            if any(payload.model_dump().values()):
+                if os.environ.get("SI_DEVELOPMENT_ENABLED") != "true" or not project.root_path:
+                    raise HTTPException(403, "Development workspace is not enabled")
+                folder(project.root_path)
+            project.permissions = payload.model_dump()
+            return project.permissions
 
     @router.get("/api/models")
     def models():
@@ -179,7 +215,9 @@ def run_routes(sessions, user_id):
                 "model": payload.model,
                 "query": payload.content,
                 "messages": messages,
-                "tools": list(dict.fromkeys(payload.tools)),
+                "tools": allowed_tools(
+                    payload.tools, payload.mode, session.get(Project, thread.project_id).permissions),
+                "mode": payload.mode,
                 "budget": {
                     k: getattr(payload, k)
                     for k in ("max_iterations", "max_tokens", "max_tool_calls", "timeout_seconds")
@@ -254,7 +292,7 @@ def run_routes(sessions, user_id):
     def get_run(run_id: str):
         with sessions() as session:
             run = scoped(session, Run, run_id)
-            ops = session.scalars(select(ToolOperation).where(ToolOperation.run_id == run_id)).all()
+            ops = session.scalars(select(ToolOperation).where(ToolOperation.run_id == run_id).order_by(ToolOperation.created_at, ToolOperation.id)).all()
             return {
                 **RunOutput.model_validate(run).model_dump(),
                 "reply": run.context.get("reply", ""),
@@ -262,6 +300,10 @@ def run_routes(sessions, user_id):
                 "charged_tokens": run.context.get("charged_tokens", 0),
                 "usage_tokens": run.context.get("usage_tokens", 0),
                 "budget_usage": totals(run.context),
+                "plan": next((op.result.get("data", {}).get("plan") for op in reversed(ops)
+                              if op.tool == "update_plan" and op.status == "succeeded"), None),
+                "commands": [command_view(c, 0, 800)
+                             for c in session.scalars(select(CommandTask).where(CommandTask.run_id == run_id))],
                 "error_code": run.context.get("error_code"),
                 "operations": [
                     {
@@ -270,6 +312,9 @@ def run_routes(sessions, user_id):
                         "status": op.status,
                         "arguments": op.arguments,
                         "result": op.result,
+                        "preview": {k: v for k, v in op.preview.items() if k != "files"} | (
+                            {"files": [{k: v for k, v in f.items() if k not in {"after", "phase"}} for f in op.preview["files"]]}
+                            if op.preview.get("kind") == "patch" else {"file_count": len(op.preview.get("files", []))}),
                     }
                     for op in ops
                 ],
@@ -342,6 +387,8 @@ def run_routes(sessions, user_id):
     def approve(operation_id: str, payload: ApprovalInput):
         with sessions.begin() as session:
             op = scoped(session, ToolOperation, operation_id)
+            if payload.approved and op.preview and payload.preview_hash != op.preview.get("hash"):
+                raise HTTPException(409, "Approval preview changed; reload before approving")
             op = approve_operation(session, op, payload.approved)
             return {"operation_id": op.id, "status": op.status}
 
@@ -352,7 +399,28 @@ def run_routes(sessions, user_id):
             run = session.scalar(select(Run).where(Run.id == run_id).with_for_update())
             if run.status not in TERMINAL:
                 run.status = "cancelled"
+                for task in session.scalars(select(CommandTask).where(CommandTask.run_id == run_id, CommandTask.status.in_(("queued", "running")))):
+                    task.cancel_requested = True
                 append_event(session, run, "run_end", {"status": "cancelled"})
             return {"run_id": run_id, "status": run.status}
+
+    @router.get("/api/commands/{command_id}")
+    def command_result(command_id: str, offset: int = Query(0, ge=0), limit: int = Query(2000, ge=1, le=4000)):
+        from waku.runtime.context_store import dependencies_valid
+        from waku.tools.project_commands import command_view
+
+        with sessions() as session:
+            task = scoped(session, CommandTask, command_id)
+            run = session.get(Run, task.run_id)
+            if run.context.get("redacted") or not dependencies_valid(session, run.project_id, run.context):
+                raise HTTPException(410, "Command source is unavailable")
+            return command_view(task, offset, limit)
+
+    @router.post("/api/commands/{command_id}/cancel")
+    def command_cancel(command_id: str):
+        with sessions.begin() as session:
+            task = scoped(session, CommandTask, command_id)
+            task.cancel_requested = True
+            return {"command_id": task.id, "status": task.status, "cancel_requested": True}
 
     return router

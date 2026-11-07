@@ -83,7 +83,8 @@ def test_openai_and_anthropic_handoff_preserves_tool_identity():
     assert json.dumps(conversation())  # Canonical context remains serializable across providers.
 
 
-def test_openai_compatible_fragmented_stream_and_usage():
+@pytest.mark.parametrize("terminal", [True, False])
+def test_openai_compatible_fragmented_stream_and_usage(terminal):
     import openai
 
     chunks = [
@@ -113,7 +114,7 @@ def test_openai_compatible_fragmented_stream_and_usage():
                     "delta": {
                         "tool_calls": [{"index": 0, "function": {"arguments": '"si://source"}'}}]
                     },
-                    "finish_reason": "tool_calls",
+                    "finish_reason": "tool_calls" if terminal else None,
                 }
             ]
         },
@@ -145,6 +146,10 @@ def test_openai_compatible_fragmented_stream_and_usage():
     with openai.OpenAI(
         api_key="fake", http_client=httpx.Client(transport=httpx.MockTransport(respond))
     ) as client:
+        if not terminal:
+            with pytest.raises(ValueError, match="incomplete_model_response"):
+                list(OpenAIProvider(client).stream(ModelRef("openai-compatible", "local"), ModelRequest(messages=conversation(), max_tokens=20)))
+            return
         events = list(
             OpenAIProvider(client).stream(
                 ModelRef("openai-compatible", "local"),

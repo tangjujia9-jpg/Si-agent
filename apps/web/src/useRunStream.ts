@@ -28,6 +28,7 @@ const kinds = [
   "compaction_failed",
   "summary_call",
   "usage_settled",
+  "command_start", "command_progress", "command_end",
 ];
 export function useRunStream(runId: string, onFinish: () => void) {
   const [run, setRun] = useState<Run | null>(null);

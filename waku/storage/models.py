@@ -45,6 +45,7 @@ class Project(Identity, Base):
     description: Mapped[str] = mapped_column(Text, default="")
     root_path: Mapped[str | None] = mapped_column(Text)
     folder_name: Mapped[str] = mapped_column(String(160), default="", server_default="")
+    permissions: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict, server_default="{}")
 
 
 class Thread(Identity, Base):
@@ -139,7 +140,29 @@ class ToolOperation(Identity, Base):
     arguments: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     status: Mapped[str] = mapped_column(String(20), default="pending")
     result: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+    preview: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict, server_default="{}")
     job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"))
+
+
+class CommandTask(Identity, Base):
+    """One approved invocation; never restart a process after uncertain dispatch."""
+
+    __tablename__ = "command_tasks"
+    __table_args__ = (
+        UniqueConstraint("operation_id"),
+        CheckConstraint("status IN ('queued','running','succeeded','failed','cancelled','unknown')", name="command_status"),
+    )
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), index=True)
+    operation_id: Mapped[str] = mapped_column(ForeignKey("tool_operations.id"))
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"))
+    status: Mapped[str] = mapped_column(String(20), default="queued")
+    backend: Mapped[str] = mapped_column(String(24))
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    request: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    output: Mapped[str] = mapped_column(Text, default="")
+    result: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"), default=dict)
+    cancel_requested: Mapped[bool] = mapped_column(default=False, server_default="false")
 
 
 class OutboxEvent(Identity, Base):

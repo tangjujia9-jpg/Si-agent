@@ -242,6 +242,7 @@ def forget_node(session, node, reason):
                 select(ToolOperation).where(ToolOperation.run_id == run.id)
             ):
                 operation.arguments = {}
+                operation.preview = {}
                 operation.result = {
                     "status": "failed",
                     "message": "Source forgotten",
@@ -250,6 +251,13 @@ def forget_node(session, node, reason):
                 }
                 if operation.status in {"pending", "approved"}:
                     operation.status = "rejected"
+            from waku.storage.models import CommandTask
+
+            for task in session.scalars(select(CommandTask).where(CommandTask.run_id == run.id)):
+                task.cancel_requested = True
+                task.output = ""
+                task.request = {"argv": ["[redacted]"], "backend": task.backend}
+                task.result = {"error_code": "forgotten_source"}
         hashes = {digest(v.snapshot["content"]) for v in versions if v.snapshot.get("content")}
         hashes.update(e.checksum for e in evidence)
         # Redact retained import payloads too, including imports predating

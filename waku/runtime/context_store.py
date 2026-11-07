@@ -3,7 +3,14 @@
 from sqlalchemy import select
 
 from waku.runtime.compaction import POLICY, fingerprint
-from waku.storage.models import ContextNode, ContextSummary, MemoryEvidence, Message, ToolOperation
+from waku.storage.models import (
+    CommandTask,
+    ContextNode,
+    ContextSummary,
+    MemoryEvidence,
+    Message,
+    ToolOperation,
+)
 
 
 def working_state(session, run_id, state):
@@ -17,6 +24,11 @@ def working_state(session, run_id, state):
                         "error_code": op.result.get("error_code")} for op in operations],
         "tool_count": state["tool_count"],
         "pending_call_ids": [c["id"] for c in state.get("pending_calls", [])],
+        "plan": next((op.result.get("data", {}).get("plan") for op in reversed(operations)
+                      if op.tool == "update_plan" and op.status == "succeeded"), None),
+        "commands": [{"id": task.id, "status": task.status, "snapshot_hash": task.snapshot_hash,
+                      "backend": task.backend, "argv": task.request.get("argv"), **task.result}
+                     for task in session.scalars(select(CommandTask).where(CommandTask.run_id == run_id))],
     }
 
 

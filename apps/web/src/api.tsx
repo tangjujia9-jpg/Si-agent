@@ -66,6 +66,22 @@ export type Operation = {
   status: string;
   arguments: Record<string, unknown>;
   result: Record<string, unknown>;
+  preview?: {
+    hash?: string; kind?: string; backend?: string; image?: string; argv?: string[];
+    cwd?: string; timeout_seconds?: number; isolation?: string; network?: string;
+    snapshot_hash?: string; file_count?: number; files?: { path: string; diff: string }[];
+  };
+};
+export type Command = {
+  command_id: string; status: string; backend: string; argv: string[];
+  snapshot_hash: string; output: string; next_offset: number | null;
+  exit_code?: number | null; error_code?: string; cancel_requested?: boolean;
+};
+export type Capabilities = {
+  linked_workspace: boolean; development_enabled: boolean;
+  permissions: { write_files?: boolean; execute_commands?: boolean };
+  execution: { backend: string; image: string };
+  tools: { name: string; label: string; effect: string; mode: string }[];
 };
 export type Run = {
   id: string;
@@ -79,6 +95,8 @@ export type Run = {
   usage_tokens?: number;
   budget_usage?: { reported_tokens: number; unsettled_tokens: number; charged_tokens: number; attempts: number };
   operations?: Operation[];
+  commands?: Command[];
+  plan?: { steps: { title: string; status: string }[]; explanation: string } | null;
 };
 export type RunEvent = {
   id: number;

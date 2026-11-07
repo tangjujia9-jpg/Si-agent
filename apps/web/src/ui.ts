@@ -1,5 +1,15 @@
 // Translate presentation labels without changing persisted values or API contracts.
 const labels: Record<string, string> = {
+  in_progress: "进行中", completed: "已完成", blocked: "待解决",
+  git_status: "检查工作区状态", git_diff: "查看代码差异", git_log: "查看提交历史",
+  update_plan: "更新任务计划", apply_project_patch: "修改项目文件",
+  run_project_command: "执行项目命令", get_command_result: "查看命令结果", stop_project_command: "停止项目命令",
+  command_start: "命令开始", command_progress: "命令运行中", command_end: "命令结束",
+  command_timeout: "命令超时，已停止进程树。", snapshot_stale: "项目文件已变化，请重新生成快照并审批。",
+  execution_environment_unavailable: "执行环境未就绪，请检查容器服务、执行镜像和程序依赖。",
+  interrupted_command: "执行器中断，命令没有重放，请核对结果。",
+  patch_conflict: "文件版本冲突或修改中断，请检查已完成项和差异。",
+  preview_unavailable: "无法生成操作预览，请检查权限并重新读取文件。",
   queued: "已排队",
   running: "运行中",
   succeeded: "已完成",
@@ -52,6 +62,7 @@ const labels: Record<string, string> = {
   memory_search: "记忆检索",
   llm_start: "模型调用开始",
   llm_end: "模型调用结束",
+  llm_retry: "重新请求模型",
   tool_start: "工具开始",
   tool_end: "工具结束",
   approval_required: "请求人工审批",

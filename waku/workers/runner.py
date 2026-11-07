@@ -32,6 +32,19 @@ def fail_runtime_job(session, job):
     from waku.runtime.runner import TERMINAL, append_event
     from waku.storage.models import OutboxEvent, Run, ToolOperation
 
+    if job.kind == "command":
+        from waku.runtime.runner import enqueue_run
+        from waku.storage.models import CommandTask
+
+        task = session.scalar(select(CommandTask).where(CommandTask.job_id == job.id))
+        if task:
+            task.status = "unknown" if task.status == "running" else "failed"
+            task.result = {"error_code": "worker_retry_exhausted", "exit_code": None}
+            run = session.get(Run, task.run_id)
+            if run and run.status not in TERMINAL:
+                enqueue_run(session, run, "resume:command:" + task.id)
+        return
+
     operation = (
         session.get(ToolOperation, job.payload.get("operation_id"))
         if job.kind == "tool_outbox"
@@ -80,6 +93,7 @@ def claim(sessions, lease_seconds: int = 60) -> tuple[str, str] | None:
                 case(
                     (Job.kind == "run", -2),
                     (Job.kind == "tool_outbox", -2),
+                    (Job.kind == "command", -2),
                     (Job.kind == "ingest", -3),
                     (Job.kind == "rebuild", 0),
                     (Job.kind == "consolidate", 1),
@@ -114,10 +128,15 @@ def _process(
     try:
         with sessions() as session:
             job = session.get(Job, job_id)
+            is_command = job is not None and job.kind == "command"
             is_index = job is not None and job.kind == "index"
             is_enrich = job is not None and job.kind == "enrich"
             runtime_kind = job.kind if job and job.kind in ("run", "tool_outbox") else None
             project_id = job.project_id if job else None
+        if is_command:
+            from waku.workers.commands import process_command
+
+            return process_command(sessions, job_id, token)
         if runtime_kind:
             if runtime is None:
                 from waku.memory.service import MemoryService

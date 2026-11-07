@@ -11,12 +11,42 @@ import { Chat } from "./Chat";
 import { RunTrace } from "./RunTrace";
 import { MemoryInspector } from "./MemoryInspector";
 import { MemoryReview } from "./MemoryReview";
+import { RunActivity } from "./RunActivity";
 import type { ProjectNode } from "./api";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.unstubAllGlobals();
+});
+
+test("patch approval sends the exact preview hash and displays a diff", async () => {
+  const run = { id: "r", status: "waiting_approval", model: "demo", trace_id: "t", operations: [{
+    id: "patch", tool: "apply_project_patch", status: "pending", arguments: {}, result: {},
+    preview: { kind: "patch", hash: "version-1", files: [{ path: "app.py", diff: "-return False\n+return True" }] },
+  }] };
+  const fetcher = vi.fn(async (_path: string, init?: RequestInit) => response(init?.method ? {} : run));
+  vi.stubGlobal("fetch", fetcher);
+  render(<RunActivity run={run} events={[]} refresh={() => {}} />);
+  expect(screen.getByText("app.py")).toBeTruthy();
+  expect(screen.getByText(/return True/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "批准操作" }));
+  await waitFor(() => expect(fetcher.mock.calls.some(([path, init]) =>
+    path === "/api/operations/patch/approval" && JSON.parse(String(init?.body)).preview_hash === "version-1",
+  )).toBe(true));
+});
+
+test("command progress exposes snapshot-bound logs and cancellation", async () => {
+  const command = { command_id: "c", status: "running", backend: "docker", argv: ["python", "-m", "unittest"], snapshot_hash: "a".repeat(64), output: "", next_offset: null };
+  const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => response({ ...command, output: "test validation ... ok" }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<RunActivity run={{ id: "r", status: "waiting_operation", model: "demo", trace_id: "t", commands: [command], plan: { steps: [{ title: "运行回归测试", status: "in_progress" }], explanation: "" } }} events={[]} refresh={() => {}} />);
+  expect(screen.getByText("正在执行项目命令")).toBeTruthy();
+  expect(screen.getByLabelText("任务计划")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "查看日志" }));
+  await screen.findByText("test validation ... ok");
+  fireEvent.click(screen.getByRole("button", { name: "停止命令" }));
+  await waitFor(() => expect(fetcher.mock.calls.some((call) => String(call[0]).endsWith("/commands/c/cancel"))).toBe(true));
 });
 const response = (value: unknown, ok = true) => ({
   ok,
@@ -190,6 +220,32 @@ test("chat reloads the chosen conversation and follows a source citation", async
   render(<Chat projectId="p" open={open} changed={() => {}} />);
   fireEvent.click(await screen.findByRole("button", { name: "storage.md" }));
   expect(open).toHaveBeenCalledWith(node.uri);
+});
+
+test("a late permission update cannot change the newly selected project", async () => {
+  let finish: (value: ReturnType<typeof response>) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === "/api/projects/p1/permissions" && init?.method === "PUT") {
+      return new Promise<ReturnType<typeof response>>((resolve) => { finish = resolve; });
+    }
+    return response(path.endsWith("/capabilities") ? {
+      development_enabled: true, linked_workspace: true,
+      permissions: { write_files: false, execute_commands: false },
+      execution: { backend: "docker" }, tools: [],
+    } : []);
+  }));
+  const props = { threadId: "t", open: () => {}, changed: () => {} };
+  const view = render(<Chat {...props} projectId="p1" />);
+  await waitFor(() => expect((screen.getByRole("option", { name: "开发" }) as HTMLOptionElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText("工作模式"), { target: { value: "development" } });
+  fireEvent.click(screen.getByLabelText("允许申请文件修改"));
+  view.rerender(<Chat {...props} projectId="p2" />);
+  await waitFor(() => expect((screen.getByRole("option", { name: "开发" }) as HTMLOptionElement).disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText("工作模式"), { target: { value: "development" } });
+  await act(async () => { finish(response({ permissions: { write_files: true } })); });
+  const permission = screen.getByLabelText("允许申请文件修改") as HTMLInputElement;
+  expect(permission.checked).toBe(false);
+  expect(permission.disabled).toBe(false);
 });
 
 test("chat retries an ambiguous transport failure with the same idempotency key", async () => {

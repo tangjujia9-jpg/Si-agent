@@ -76,7 +76,11 @@ ssh -N -L 127.0.0.1:18790:127.0.0.1:18790 aliyun-tang
 2026-10-22 已将本机 `SI_COMPATIBLE_CONTEXT_WINDOW` 从 32,768 调整为 65,536；
 实测范围与后续工具方案见[长任务上下文设计](si-context-and-tools-design.zh-CN.md)。
 
-本轮新增迁移 0009，持久化工作摘要和来源依赖；升级前先备份数据库。上下文结构和预算结算见[接续验收](copilot-context-continuity-release.md)。
+迁移 0009 持久化工作摘要和来源依赖；0010 增加项目开发权限、审批预览与命令任务。升级前先备份数据库，再运行 `alembic upgrade head`。
+上下文结构和预算结算见[接续验收](copilot-context-continuity-release.md)。
+文件修改与程序执行默认关闭；显式开启 `SI_DEVELOPMENT_ENABLED=true` 后，再在工作台逐项目授权。
+命令默认使用 `SI_COMMAND_BACKEND=docker`，需要运行 `docker build -f infra/Dockerfile.runner -t si-agent-runner:local .` 并配置可用的 Docker Worker。
+基础 Compose 不挂 Docker socket，不自动开放程序执行；完整开发配置与可信本机边界见[开发工具验收](copilot-development-release.zh-CN.md)。
 
 本机已设置 `SI_WORKSPACE_ROOTS=C:/code`，文件浏览器只允许在此范围内关联项目。
 Windows 多个根目录使用分号分隔；Docker 默认不挂载宿主机目录，可以用浏览器导入快照。
