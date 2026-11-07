@@ -20,6 +20,7 @@ from waku.runtime.processes import ProcessTree
 from waku.runtime.runner import TERMINAL, append_event, enqueue_run
 from waku.runtime.workspace import digest, folder, manifest_hash, scan, target
 from waku.storage.models import CommandTask, Job, Project, Run, now
+from waku.tools.project_commands import command_configuration
 
 ACTIVE = {"queued", "running"}
 
@@ -90,8 +91,13 @@ def process_command(sessions, job_id, token):
             return False
         run = session.scalar(select(Run).where(Run.id == identity.run_id).with_for_update())
         project = session.get(Project, identity.project_id)
+        configuration = command_configuration()
+        environment_changed = (os.environ.get("SI_DEVELOPMENT_ENABLED") != "true"
+                               or any(request.get(key) != value for key, value in configuration.items()))
         stopped = (identity.cancel_requested or run.status in TERMINAL
                    or not project.permissions.get("execute_commands")
+                   or project.user_id != run.context.get("user_id")
+                   or project.root_path != request.get("root")
                    or not dependencies_valid(session, run.project_id, run.context))
         if previous == "queued":
             identity.status = "running"
@@ -110,6 +116,9 @@ def process_command(sessions, job_id, token):
                       {"error_code": "interrupted_command", "exit_code": None}, "Worker interrupted; command was not replayed.")
     if stopped:
         return finish(sessions, task_id, job_id, token, "cancelled", {"exit_code": None}, "")
+    if environment_changed:
+        return finish(sessions, task_id, job_id, token, "failed",
+                      {"exit_code": None, "error_code": "execution_configuration_changed"}, "")
     started, output, truncated, tree = time.monotonic(), "", False, None
     container_created = False
     status, result = "failed", {"exit_code": None}

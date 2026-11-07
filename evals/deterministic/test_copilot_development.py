@@ -227,6 +227,25 @@ def test_failed_build_can_be_fixed_and_verified_in_a_new_snapshot(backend, tmp_p
     assert not (root / "output.md").exists()  # isolated command artifacts do not bypass patch approval
 
 
+@pytest.mark.parametrize("change", ["backend", "disabled"])
+def test_command_worker_cannot_inherit_a_different_execution_policy(backend, tmp_path, monkeypatch, change):
+    client, sessions, _root, _, rid, runtime, _model = development(backend, tmp_path, monkeypatch, [
+        tool("run_project_command", {"argv": ["python", "-c", "print('must not execute')"]}),
+    ])
+    work(sessions, runtime, kind="run")
+    approve(client, rid)
+    work(sessions, runtime, kind="tool_outbox")
+    from waku.workers import commands
+    monkeypatch.setattr(commands, "ProcessTree", lambda *a, **k: pytest.fail("worker dispatched under a different policy"))
+    monkeypatch.setenv("SI_COMMAND_BACKEND" if change == "backend" else "SI_DEVELOPMENT_ENABLED", "docker" if change == "backend" else "false")
+    work(sessions, runtime, kind="command")
+    command = client.get(f"/api/runs/{rid}").json()["commands"][0]
+    assert command["status"] == "failed" and command["exit_code"] is None
+    assert command["error_code"] == "execution_configuration_changed"
+    full = client.get(f"/api/commands/{command['command_id']}").json()
+    assert full["output"] == ""
+
+
 def test_stale_preview_hash_scope_and_permissions_are_enforced(backend, tmp_path, monkeypatch):
     client, sessions, root, pid, rid, runtime, _ = development(backend, tmp_path, monkeypatch, [
         tool("apply_project_patch", {"files": [{"path": "README.md", "new_text": "Approved content"}]}),
